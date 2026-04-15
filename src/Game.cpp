@@ -1,0 +1,500 @@
+#include "Game.h"
+#include "InputManager.h"
+#include "Camera.h"
+#include "graphics/ProceduralArt.h"
+#include "world/TileMap.h"
+#include <cstdio>
+#include <cstring>
+
+/**
+ * Game Constructor - Initialize member variables
+ */
+Game::Game() 
+    : window(nullptr)
+    , renderer(nullptr)
+    , running(false)
+    , paused(false)
+    , shouldQuit(false)
+    , lastFrameTime(0)
+    , frameCount(0)
+    , secondsSinceLastHeartbeat(0.0f)
+    , inputManager(nullptr)
+    , camera(nullptr)
+    , proceduralArt(nullptr)
+    , tileMap(nullptr)
+    , playerPosition(SCREEN_WIDTH / 2.0f, SCREEN_HEIGHT / 2.0f)  // Start in center of screen
+    , playerFacing(FACING_DOWN)  // Default facing direction
+{
+}
+
+/**
+ * Game Destructor - Cleanup handled by cleanup() method
+ */
+Game::~Game() {
+    cleanup();
+}
+
+/**
+ * Initialize SDL window and renderer
+ */
+bool Game::initialize() {
+    DEBUG_LOG("Creating window: %dx%d (scaled %dx%d)", 
+              SCREEN_WIDTH, SCREEN_HEIGHT,
+              SCREEN_WIDTH * WINDOW_SCALE, SCREEN_HEIGHT * WINDOW_SCALE);
+    
+    // Create window with scaling
+    window = SDL_CreateWindow(
+        "Adventurer",
+        SDL_WINDOWPOS_CENTERED,
+        SDL_WINDOWPOS_CENTERED,
+        SCREEN_WIDTH * WINDOW_SCALE,
+        SCREEN_HEIGHT * WINDOW_SCALE,
+        SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE
+    );
+    
+    if (window == nullptr) {
+        DEBUG_LOG("Failed to create window: %s", SDL_GetError());
+        return false;
+    }
+    
+    DEBUG_LOG("Window created successfully");
+    
+    // Create renderer with nearest-neighbor filtering for pixel art look
+    renderer = SDL_CreateRenderer(window, -1,
+                                  SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    
+    if (renderer == nullptr) {
+        DEBUG_LOG("Failed to create renderer: %s", SDL_GetError());
+        return false;
+    }
+    
+    DEBUG_LOG("Renderer created successfully");
+    
+    // Set rendering scale for integer scaling
+    SDL_RenderSetIntegerScale(renderer, SDL_TRUE);
+    
+    // Set initial render target size (internal resolution)
+    SDL_SetRenderDrawColor(renderer,
+                           (Uint8)(Colors::BACKGROUND_DARK >> 16),
+                           (Uint8)((Colors::BACKGROUND_DARK >> 8) & 0xFF),
+                           (Uint8)(Colors::BACKGROUND_DARK & 0xFF),
+                           255);
+    SDL_RenderClear(renderer);
+    SDL_RenderPresent(renderer);
+    
+    // Create subsystems
+    inputManager = new InputManager();
+    camera = new Camera();
+    proceduralArt = new ProceduralArt(renderer);
+    tileMap = new TileMap(renderer, proceduralArt);
+    
+    // Start in fixed camera mode for indoor testing
+    camera->setFixed(true);
+    
+    // Initialize the tile map with indoor house layout
+    tileMap->loadIndoorHouseLayout();
+    
+    // Generate static background texture for optimized rendering
+    // Reduces draw calls from 112 per frame to 1 per frame
+    tileMap->generateStaticBackground(renderer);
+    
+    // Start player in center of room for testing
+    playerPosition.x = SCREEN_WIDTH / 2.0f;
+    playerPosition.y = SCREEN_HEIGHT / 2.0f;
+    
+    running = true;
+    lastFrameTime = SDL_GetTicks();
+    
+    DEBUG_LOG("InputManager created");
+    DEBUG_LOG("Camera created (fixed, no panning)");
+    DEBUG_LOG("ProceduralArt created");
+    DEBUG_LOG("TileMap initialized with room layout");
+    DEBUG_LOG("Player starting position: (%.1f, %.1f)", playerPosition.x, playerPosition.y);
+    DEBUG_LOG("Game initialized successfully");
+    return true;
+}
+
+/**
+ * Cleanup all resources
+ */
+void Game::cleanup() {
+    // Delete subsystems
+    if (tileMap != nullptr) {
+        delete tileMap;
+        tileMap = nullptr;
+        DEBUG_LOG("TileMap destroyed");
+    }
+    
+    if (proceduralArt != nullptr) {
+        delete proceduralArt;
+        proceduralArt = nullptr;
+        DEBUG_LOG("ProceduralArt destroyed");
+    }
+    
+    if (inputManager != nullptr) {
+        delete inputManager;
+        inputManager = nullptr;
+        DEBUG_LOG("InputManager destroyed");
+    }
+    
+    if (camera != nullptr) {
+        delete camera;
+        camera = nullptr;
+        DEBUG_LOG("Camera destroyed");
+    }
+    
+    // Delete SDL resources
+    if (renderer != nullptr) {
+        SDL_DestroyRenderer(renderer);
+        renderer = nullptr;
+        DEBUG_LOG("Renderer destroyed");
+    }
+    
+    if (window != nullptr) {
+        SDL_DestroyWindow(window);
+        window = nullptr;
+        DEBUG_LOG("Window destroyed");
+    }
+}
+
+/**
+ * Handle input events - Centralized event polling per AGENTS.md protocol
+ */
+void Game::handleInput() {
+    if (inputManager == nullptr) return;
+    
+    // Let InputManager handle all event polling and input state updates
+    inputManager->handleEvents(shouldQuit);
+    
+    // Check for pause toggle
+    if (inputManager->isPausePressed()) {
+        paused = !paused;
+        DEBUG_LOG("Game %s", paused ? "PAUSED" : "RESUMED");
+    }
+}
+
+/**
+ * Update game state - Placeholder for now
+ */
+void Game::update(float deltaTime) {
+    if (inputManager == nullptr || camera == nullptr) return;
+    
+    // Get input values (-1.0 to +1.0)
+    float horizontalInput = inputManager->getHorizontalInput();
+    float verticalInput = inputManager->getVerticalInput();
+    
+    // Update player facing direction based on input (only when moving)
+    if (horizontalInput != 0.0f || verticalInput != 0.0f) {
+        if (verticalInput > 0.3f) { // Moving Down
+            if (horizontalInput > 0.3f) playerFacing = FACING_DOWN_RIGHT;
+            else if (horizontalInput < -0.3f) playerFacing = FACING_DOWN_LEFT;
+            else playerFacing = FACING_DOWN;
+        } else if (verticalInput < -0.3f) { // Moving Up
+            if (horizontalInput > 0.3f) playerFacing = FACING_UP_RIGHT;
+            else if (horizontalInput < -0.3f) playerFacing = FACING_UP_LEFT;
+            else playerFacing = FACING_UP;
+        } else { // Moving purely horizontally
+            if (horizontalInput > 0.3f) playerFacing = FACING_RIGHT;
+            else if (horizontalInput < -0.3f) playerFacing = FACING_LEFT;
+        }
+    }
+    
+    // Update animation timer and frame for walk cycle
+    isMoving = (horizontalInput != 0.0f || verticalInput != 0.0f);
+    if (isMoving) {
+        animationTimer += 16; // Approximate ms per frame at 60 FPS
+        // Cycle through frames every ~240ms (4 frames per second for walk cycle)
+        currentAnimFrame = (animationTimer / 240) % 3;
+    } else {
+        animationTimer = 0;
+        currentAnimFrame = 0; // Reset to idle frame when not moving
+    }
+    
+    // Apply diagonal normalization for equal speed in all directions
+    if (horizontalInput != 0.0f && verticalInput != 0.0f) {
+        horizontalInput *= DIAGONAL_NORMALIZE;
+        verticalInput *= DIAGONAL_NORMALIZE;
+    }
+    
+    // Update player position based on input
+    // PLAYER_SPEED is pixels per frame, so no deltaTime multiplication needed for frame-based movement
+    float moveSpeed = PLAYER_SPEED;
+    
+    if (tileMap != nullptr) {
+        // Check collision at new positions BEFORE applying movement
+        float newX = playerPosition.x + horizontalInput * moveSpeed;
+        float newY = playerPosition.y + verticalInput * moveSpeed;
+        
+        // Calculate bounding box for collision check
+        float halfWidth = PLAYER_WIDTH / 2.0f;
+        float halfHeight = PLAYER_HEIGHT / 2.0f;
+        
+        // Only update X if no collision at new X position
+        if (!tileMap->checkCollisionBox(newX - halfWidth, playerPosition.y - halfHeight, 
+                                        PLAYER_WIDTH, PLAYER_HEIGHT)) {
+            playerPosition.x = newX;
+        }
+        
+        // Only update Y if no collision at new Y position
+        if (!tileMap->checkCollisionBox(playerPosition.x - halfWidth, newY - halfHeight,
+                                        PLAYER_WIDTH, PLAYER_HEIGHT)) {
+            playerPosition.y = newY;
+        }
+    } else {
+        // Fallback: simple screen bounds clamping with wall margin
+        const float WALL_MARGIN = 16.0f;
+        float newX = playerPosition.x + horizontalInput * moveSpeed;
+        float newY = playerPosition.y + verticalInput * moveSpeed;
+        
+        playerPosition.x = std::max(WALL_MARGIN, std::min(newX, static_cast<float>(SCREEN_WIDTH - WALL_MARGIN)));
+        playerPosition.y = std::max(WALL_MARGIN, std::min(newY, static_cast<float>(SCREEN_HEIGHT - WALL_MARGIN)));
+    }
+    
+    // Update camera to follow player
+    camera->update(playerPosition);
+    
+    // Check for world transitions through door
+    checkWorldTransition();
+}
+
+/**
+ * Check if player is passing through a door to transition between worlds
+ */
+void Game::checkWorldTransition() {
+    if (worldTransitionPending) return;
+    if (tileMap == nullptr) return;
+    
+    // Check if player is colliding with a door tile
+    int gridX = static_cast<int>(playerPosition.x / 48.0f);
+    int gridY = static_cast<int>(playerPosition.y / 48.0f);
+    
+    if (tileMap->isDoorTile(gridX, gridY)) {
+        // Determine which world to transition to based on current world
+        WorldType targetWorld;
+        float exitX, exitY;
+        
+        if (currentWorld == WorldType::INDOOR_HOUSE) {
+            // Going outside - position player WELL SOUTH of the house
+            // Outdoor house door is at approximately y=4 (out of 8 tiles)
+            // Position player at y=6 to be safely in front of the house
+            targetWorld = WorldType::OUTDOOR_WORLD;
+            exitX = playerPosition.x;  // Keep same horizontal position
+            exitY = 280.0f;  // Well below the house (6 tiles * 48 pixels = 288, minus margin)
+        } else {
+            // Going inside - exit at top of door into the house interior
+            targetWorld = WorldType::INDOOR_HOUSE;
+            exitX = playerPosition.x;
+            exitY = playerPosition.y - 40.0f;  // Move north into house
+        }
+        
+        // Trigger world switch
+        switchWorld(targetWorld);
+        playerPosition.x = exitX;
+        playerPosition.y = exitY;
+        
+        DEBUG_LOG("World transition: %s -> %s, Player pos: (%.1f, %.1f)",
+                  currentWorld == WorldType::INDOOR_HOUSE ? "INDOOR" : "OUTDOOR",
+                  targetWorld == WorldType::INDOOR_HOUSE ? "INDOOR" : "OUTDOOR",
+                  exitX, exitY);
+    }
+}
+
+/**
+ * Switch to a different world/room
+ */
+void Game::switchWorld(WorldType newWorld) {
+    currentWorld = newWorld;
+    worldTransitionPending = true;
+    
+    // Reload tile map with new layout
+    if (tileMap != nullptr) {
+        if (newWorld == WorldType::INDOOR_HOUSE) {
+            tileMap->loadIndoorHouseLayout();
+            camera->setFixed(true);  // Fixed camera for indoor rooms
+        } else {
+            tileMap->loadOutdoorWorldLayout();
+            camera->setFixed(false); // Enable panning for outdoor world
+        }
+        
+        // Regenerate static background for new map
+        tileMap->generateStaticBackground(renderer);
+    }
+    
+    // Brief cooldown to prevent rapid re-entry
+    SDL_Delay(200);
+    worldTransitionPending = false;
+}
+
+/**
+ * Render frame - Clear screen with background color for now
+/**
+ * Render frame - Draw room with walls and floor
+ */
+void Game::render() {
+    // Get camera offset (fixed at 0,0 for testing)
+    Vector2D cameraOffset = camera->getOffset();
+    
+    // Clear screen to dark background (outside the room area)
+    SDL_SetRenderDrawColor(renderer, 
+                           (Uint8)(Colors::BACKGROUND_DARK >> 16),
+                           (Uint8)((Colors::BACKGROUND_DARK >> 8) & 0xFF),
+                           (Uint8)(Colors::BACKGROUND_DARK & 0xFF),
+                           255);
+    SDL_RenderClear(renderer);
+    
+    // Draw the tile map
+    if (tileMap != nullptr) {
+        tileMap->render(renderer, static_cast<int>(cameraOffset.x), static_cast<int>(cameraOffset.y));
+    }
+    
+    // Draw player sprite (Link-style, facing down)
+    float screenX = playerPosition.x - cameraOffset.x;
+    float screenY = playerPosition.y - cameraOffset.y;
+    
+    // Get the player sprite texture from ProceduralArt based on facing direction
+    SDL_Texture* playerTexture = nullptr;
+    switch (playerFacing) {
+        case FACING_DOWN:
+            playerTexture = proceduralArt->getPlayerSpriteDown(currentAnimFrame);
+            break;
+        case FACING_UP:
+            playerTexture = proceduralArt->getPlayerSpriteUp(currentAnimFrame);
+            break;
+        case FACING_LEFT:
+            playerTexture = proceduralArt->getPlayerSpriteLeft(currentAnimFrame);
+            break;
+        case FACING_RIGHT:
+            playerTexture = proceduralArt->getPlayerSpriteRight(currentAnimFrame);
+            break;
+        case FACING_DOWN_LEFT:
+            playerTexture = proceduralArt->getPlayerSpriteDownLeft(currentAnimFrame);
+            break;
+        case FACING_DOWN_RIGHT:
+            playerTexture = proceduralArt->getPlayerSpriteDownRight(currentAnimFrame);
+            break;
+        case FACING_UP_LEFT:
+            playerTexture = proceduralArt->getPlayerSpriteUpLeft(currentAnimFrame);
+            break;
+        case FACING_UP_RIGHT:
+            playerTexture = proceduralArt->getPlayerSpriteUpRight(currentAnimFrame);
+            break;
+    }
+    
+    if (playerTexture != nullptr) {
+        // Define source rectangle (full sprite)
+        SDL_Rect srcRect;
+        srcRect.x = 0;
+        srcRect.y = 0;
+        srcRect.w = PLAYER_WIDTH;   // 48 pixels (HD)
+        srcRect.h = PLAYER_HEIGHT;  // 64 pixels (HD)
+        
+        // Define destination rectangle (centered on player position)
+        SDL_Rect dstRect;
+        dstRect.x = static_cast<int>(screenX - PLAYER_WIDTH / 2);
+        dstRect.y = static_cast<int>(screenY - PLAYER_HEIGHT / 2);
+        dstRect.w = PLAYER_WIDTH;
+        dstRect.h = PLAYER_HEIGHT;
+        
+        // Render the sprite
+        SDL_RenderCopy(renderer, playerTexture, &srcRect, &dstRect);
+    } else {
+        // Fallback: draw green rectangle if sprite fails to load
+        SDL_Rect playerRect;
+        playerRect.x = static_cast<int>(screenX - PLAYER_WIDTH / 2);
+        playerRect.y = static_cast<int>(screenY - PLAYER_HEIGHT / 2);
+        playerRect.w = PLAYER_WIDTH;
+        playerRect.h = PLAYER_HEIGHT;
+        
+        SDL_SetRenderDrawColor(renderer,
+                               (Uint8)(Colors::PLAYER_TUNE >> 16),
+                               (Uint8)((Colors::PLAYER_TUNE >> 8) & 0xFF),
+                               (Uint8)(Colors::PLAYER_TUNE & 0xFF),
+                               255);
+        SDL_RenderFillRect(renderer, &playerRect);
+    }
+    
+    // Present the rendered frame
+    SDL_RenderPresent(renderer);
+}
+
+/**
+ * Log heartbeat with performance metrics
+ */
+void Game::logHeartbeat() {
+    static bool firstHeartbeat = true;
+    
+    if (firstHeartbeat) {
+        DEBUG_LOG("========================================");
+        DEBUG_LOG("GAME LOOP STARTED - Performance Monitor");
+        DEBUG_LOG("========================================");
+        firstHeartbeat = false;
+    }
+    
+    float fps = frameCount / secondsSinceLastHeartbeat;
+    float avgFrameTime = (secondsSinceLastHeartbeat * 1000.0f) / frameCount;
+    
+    DEBUG_LOG("[HEARTBEAT] FPS: %.1f | Avg Frame Time: %.2fms | Frames: %d",
+              fps, avgFrameTime, frameCount);
+    
+    // Check if we're maintaining target FPS
+    if (fps < TARGET_FPS * 0.9f) {
+        DEBUG_LOG("WARNING: Below target FPS (%d)", TARGET_FPS);
+    }
+}
+
+/**
+ * Main game loop - Runs at 60 FPS with delta time calculation
+ */
+int Game::run() {
+    // Initialize SDL resources
+    if (!initialize()) {
+        DEBUG_LOG("Failed to initialize game");
+        return 1;
+    }
+    
+    DEBUG_LOG("Entering main game loop...");
+    
+    while (running && !shouldQuit) {
+        Uint32 currentFrameTime = SDL_GetTicks();
+        
+        // Calculate delta time in seconds
+        float deltaTime = (currentFrameTime - lastFrameTime) / 1000.0f;
+        lastFrameTime = currentFrameTime;
+        
+        // Frame timing clamp to prevent spiral of death
+        if (deltaTime > 0.25f) {
+            deltaTime = 0.25f;  // Cap at 250ms
+        }
+        
+        // Handle input events
+        handleInput();
+        
+        // Update and render if not paused
+        if (!paused && !shouldQuit) {
+            update(deltaTime);
+            render();
+        }
+        
+        // Frame counting for heartbeat
+        frameCount++;
+        secondsSinceLastHeartbeat += deltaTime;
+        
+        // Log performance heartbeat every ~5 seconds
+        if (secondsSinceLastHeartbeat >= 5.0f) {
+            logHeartbeat();
+            frameCount = 0;
+            secondsSinceLastHeartbeat = 0.0f;
+        }
+        
+        // Frame rate limiting - maintain 60 FPS target
+        Uint32 elapsed = SDL_GetTicks() - currentFrameTime;
+        Uint32 targetElapsed = static_cast<Uint32>(FRAME_DURATION_MS);
+        if (elapsed < targetElapsed) {
+            SDL_Delay(targetElapsed - elapsed);
+        }
+    }
+    
+    DEBUG_LOG("Exiting game loop");
+    cleanup();
+    return 0;
+}

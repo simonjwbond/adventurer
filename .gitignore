@@ -39,3 +39,24 @@
 
 # debug information files
 *.dwo
+
+# Build directories
+build/
+build_windows/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Debug logs
+*.log
+
+# Cached textures (if any)
+*.cache
