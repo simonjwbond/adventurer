@@ -22,7 +22,7 @@ set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
 
 # SDL2 for MinGW
-set(SDL2_DIR /usr/lib/x86_64-w64-mingw32/cmake/SDL2)
+set(SDL2_DIR /usr/x86_64-w64-mingw32/lib/cmake/SDL2)
 
 # Compiler flags for Windows
 add_compile_options(-Wall -Wextra)
