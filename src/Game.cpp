@@ -97,12 +97,26 @@ bool Game::initialize() {
     // Initialize the world manager with all areas
     worldManager->initialize();
     
+    // Load the current area (blocking - must be ready before rendering)
+    worldManager->ensureCurrentAreaLoaded();
+    
+    // Start preloading adjacent areas in background
+    worldManager->preloadAdjacentAreas();
+    
     // Start in fixed camera mode for indoor testing
     camera->setFixed(true);
     
-    // Get initial position from world manager
-    playerPosition.x = SCREEN_WIDTH / 2.0f;
-    playerPosition.y = SCREEN_HEIGHT / 2.0f;
+    // Get starting position from current area
+    WorldManager::WorldArea* currentArea = worldManager->getCurrentArea();
+    if (currentArea != nullptr) {
+        playerPosition.x = currentArea->entryX;
+        playerPosition.y = currentArea->entryY;
+        DEBUG_LOG("Player starting position from area: (%.1f, %.1f)", playerPosition.x, playerPosition.y);
+    } else {
+        playerPosition.x = SCREEN_WIDTH / 2.0f;
+        playerPosition.y = SCREEN_HEIGHT / 2.0f;
+        DEBUG_LOG("Player starting position (default): (%.1f, %.1f)", playerPosition.x, playerPosition.y);
+    }
     
     running = true;
     lastFrameTime = SDL_GetTicks();

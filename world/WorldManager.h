@@ -156,6 +156,11 @@ public:
     AreaType getCurrentAreaType() const;
     
     /**
+     * Get current area (for initialization)
+     */
+    WorldArea* getCurrentArea() const;
+    
+    /**
      * Get area by type
      */
     WorldArea* getArea(AreaType type) const;

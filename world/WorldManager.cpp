@@ -386,6 +386,13 @@ WorldManager::AreaType WorldManager::getCurrentAreaType() const {
 }
 
 /**
+ * Get current area (for initialization)
+ */
+WorldManager::WorldArea* WorldManager::getCurrentArea() const {
+    return currentArea;
+}
+
+/**
  * Get area by type
  */
 WorldManager::WorldArea* WorldManager::getArea(AreaType type) const {
