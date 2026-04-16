@@ -4,6 +4,7 @@
 #include <SDL2/SDL.h>
 #include "utils/Constants.h"
 #include "utils/MathUtils.h"
+#include "utils/Settings.h"
 
 // Forward declarations
 class InputManager;
@@ -31,6 +32,12 @@ public:
      */
     int run();
     
+    /**
+     * Set auto-close timer (seconds until application closes)
+     * @param seconds Number of seconds before auto-close (0 to disable)
+     */
+    void setAutoClose(float seconds);
+    
 private:
     // SDL resources
     SDL_Window* window;
@@ -46,11 +53,16 @@ private:
     int frameCount;
     float secondsSinceLastHeartbeat;
     
+    // Auto-close timer (seconds until application closes, 0 = disabled)
+    float autoCloseTimer;
+    float autoCloseDuration;
+    
     // Subsystems
     InputManager* inputManager;
     Camera* camera;
     ProceduralArt* proceduralArt;
     TileMap* tileMap;
+    Settings* settings;
     
     // Player position for testing (will move to Player class in Phase 3)
     Vector2D playerPosition;

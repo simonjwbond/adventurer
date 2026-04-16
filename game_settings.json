@@ -1,0 +1,21 @@
+{
+    "game": {
+        "player_speed": 180.0,
+        "player_walk_speed": 120.0,
+        "player_run_speed": 240.0
+    },
+    "camera": {
+        "smoothness": 0.15,
+        "zoom_level": 1.0
+    },
+    "audio": {
+        "master_volume": 0.8,
+        "music_volume": 0.6,
+        "sfx_volume": 0.7
+    },
+    "graphics": {
+        "render_distance": 16,
+        "particle_count": 100,
+        "enable_shadows": true
+    }
+}

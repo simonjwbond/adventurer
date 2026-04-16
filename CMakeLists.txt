@@ -39,6 +39,9 @@ set(SOURCES
     
     # World/Tiles
     world/TileMap.cpp
+    
+    # Utilities
+    utils/Settings.cpp
 )
 
 # Include directories for project headers

@@ -11,8 +11,13 @@ ProceduralArt::ProceduralArt(SDL_Renderer* ren)
 {
     createWoodFloorTexture();
     createStoneWallTexture();
+    createRoofTexture();
+    createGrassVariations();  // Create 9 grass variations
     createGrassTexture();
+    createIceVariations();    // Create 9 ice variations
+    createSnowTexture();
     createTreeTexture();
+    createTreeBorderVariations();  // Create border tree variations
     createBushTexture();
     createFenceTexture();
     
@@ -392,6 +397,155 @@ void ProceduralArt::createWoodFloorTexture() {
 }
 
 /**
+ * Create roof texture - shingled pattern for house exterior
+ */
+void ProceduralArt::createRoofTexture() {
+    Uint8 pixels[32 * 32 * 4];
+    
+    const int width = 32;
+    const int height = 32;
+    const Uint8 baseR = 101, baseG = 52, baseB = 26;  // Reddish-brown shingles
+    
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            int index = (y * width + x) * 4;
+            
+            Uint8 r, g, b;
+            
+            // Create shingle pattern - overlapping rows
+            bool isShingleEdge = (y % 6) == 0 || (y % 6) == 5;
+            bool isShingleVertical = (x % 8) == 0 || (x % 8) == 7;
+            
+            // Add offset for alternating rows to create staggered shingles
+            int rowOffset = (y / 6) % 2 * 4;
+            bool isStaggeredEdge = ((x + rowOffset) % 8) == 0 || ((x + rowOffset) % 8) == 7;
+            
+            if (isShingleEdge || isStaggeredEdge) {
+                // Shingle edges - darker
+                r = baseR - 20 + (rand() % 15 - 7);
+                g = baseG - 15 + (rand() % 15 - 7);
+                b = baseB - 10 + (rand() % 15 - 7);
+            } else {
+                // Shingle body - add variation for texture
+                r = baseR + (rand() % 25 - 12);
+                g = baseG + (rand() % 20 - 10);
+                b = baseB + (rand() % 15 - 7);
+            }
+            
+            pixels[index + 0] = r;
+            pixels[index + 1] = g;
+            pixels[index + 2] = b;
+            pixels[index + 3] = 255;
+        }
+    }
+    
+    roofTexture = createTextureFromPixels(pixels, 32, 32);
+}
+
+/**
+ * Create 9 grass texture variations at 3x scale (96x96 pixels)
+ * Each variation has different color palettes and noise patterns for natural variety
+ */
+void ProceduralArt::createGrassVariations() {
+    const int TILE_SIZE = 96;  // 3x the original 32px
+    
+    // Define 9 different grass color palettes
+    struct GrassPalette {
+        Uint8 darkR, darkG, darkB;
+        Uint8 mediumR, mediumG, mediumB;
+        Uint8 lightR, lightG, lightB;
+        Uint8 brownR, brownG, brownB;
+    };
+    
+    GrassPalette palettes[9] = {
+        // Variation 0: Standard green
+        {20, 100, 20, 50, 168, 50, 100, 200, 100, 139, 90, 43},
+        // Variation 1: Darker forest green
+        {10, 80, 10, 30, 140, 30, 80, 180, 80, 100, 70, 30},
+        // Variation 2: Bright spring green
+        {40, 140, 40, 70, 190, 70, 120, 220, 120, 150, 100, 50},
+        // Variation 3: Olive green
+        {50, 100, 30, 80, 140, 60, 130, 180, 100, 120, 100, 50},
+        // Variation 4: Yellow-green
+        {60, 130, 40, 90, 170, 60, 140, 210, 100, 140, 110, 60},
+        // Variation 5: Blue-green (teal tint)
+        {30, 110, 50, 60, 150, 70, 100, 190, 110, 110, 90, 50},
+        // Variation 6: Autumn green (more brown)
+        {70, 120, 50, 100, 150, 70, 140, 180, 100, 160, 120, 80},
+        // Variation 7: Deep emerald
+        {15, 90, 30, 40, 130, 50, 90, 170, 90, 100, 80, 40},
+        // Variation 8: Meadow mix
+        {45, 125, 35, 75, 165, 55, 115, 205, 95, 135, 95, 45}
+    };
+    
+    for (int v = 0; v < 9; v++) {
+        Uint8 pixels[TILE_SIZE * TILE_SIZE * 4];
+        const GrassPalette& pal = palettes[v];
+        
+        for (int y = 0; y < TILE_SIZE; y++) {
+            for (int x = 0; x < TILE_SIZE; x++) {
+                int index = (y * TILE_SIZE + x) * 4;
+                
+                // Create varied noise pattern - different seed per variation
+                int noise = ((x * (7 + v) + y * (13 + v)) * (17 + v * 3)) % 100;
+                
+                Uint8 r, g, b;
+                
+                // Determine pixel type based on noise value
+                if (noise < 35) {
+                    // Dark green (shadow areas)
+                    r = pal.darkR + (rand() % 15 - 7);
+                    g = pal.darkG + (rand() % 15 - 7);
+                    b = pal.darkB + (rand() % 15 - 7);
+                } else if (noise < 65) {
+                    // Medium green (base grass)
+                    r = pal.mediumR + (rand() % 18 - 8);
+                    g = pal.mediumG + (rand() % 18 - 8);
+                    b = pal.mediumB + (rand() % 18 - 8);
+                } else if (noise < 88) {
+                    // Light green (sunlit areas)
+                    r = pal.lightR + (rand() % 18 - 8);
+                    g = pal.lightG + (rand() % 18 - 8);
+                    b = pal.lightB + (rand() % 18 - 8);
+                } else {
+                    // Brown patches (dirt showing through)
+                    r = pal.brownR + (rand() % 12 - 6);
+                    g = pal.brownG + (rand() % 12 - 6);
+                    b = pal.brownB + (rand() % 12 - 6);
+                }
+                
+                // Add blade-like details - vertical streaks (more prominent at larger scale)
+                if ((x % 6 == 0 || x % 6 == 1 || x % 6 == 2) && noise > 45) {
+                    r = std::min(255, r + 25);
+                    g = std::min(255, g + 25);
+                    b = std::min(255, b + 8);
+                }
+                
+                // Add some random bright spots (flowers/dew) - rare
+                if (noise > 93) {
+                    // Different flower colors per variation
+                    int flowerType = v % 3;
+                    if (flowerType == 0) {  // Yellow
+                        r = 255; g = 255; b = 100;
+                    } else if (flowerType == 1) {  // White
+                        r = 255; g = 255; b = 240;
+                    } else {  // Pink
+                        r = 255; g = 180; b = 220;
+                    }
+                }
+                
+                pixels[index + 0] = r;
+                pixels[index + 1] = g;
+                pixels[index + 2] = b;
+                pixels[index + 3] = 255;
+            }
+        }
+        
+        grassVariation[v] = createTextureFromPixels(pixels, TILE_SIZE, TILE_SIZE);
+    }
+}
+
+/**
  * Create stone wall texture
  */
 void ProceduralArt::createStoneWallTexture() {
@@ -516,6 +670,131 @@ void ProceduralArt::createGrassTexture() {
 }
 
 /**
+ * Create 9 ice texture variations at 32x32 for the ice biome
+ * Each variation has different ice patterns and color palettes
+ */
+void ProceduralArt::createIceVariations() {
+    const int TILE_SIZE = 32;
+    
+    // Define 9 different ice color palettes
+    struct IcePalette {
+        Uint8 baseR, baseG, baseB;
+        Uint8 highlightR, highlightG, highlightB;
+        Uint8 shadowR, shadowG, shadowB;
+        Uint8 accentR, accentG, accentB;
+    };
+    
+    IcePalette palettes[9] = {
+        // Ice 1: Light blue ice
+        {200, 230, 255, 240, 250, 255, 160, 200, 240, 180, 220, 250},
+        // Ice 2: Medium cyan ice
+        {100, 200, 220, 180, 230, 255, 70, 160, 190, 120, 190, 220},
+        // Ice 3: Dark blue ice
+        {60, 140, 180, 120, 190, 230, 40, 100, 140, 80, 160, 200},
+        // Ice 4: Cracked ice (gray-blue)
+        {140, 160, 180, 200, 210, 220, 100, 120, 140, 160, 170, 190},
+        // Ice 5: Smooth ice (pure white-blue)
+        {220, 240, 255, 255, 255, 255, 180, 210, 240, 240, 245, 255},
+        // Ice 6: Frosty ice (white with blue tint)
+        {230, 245, 255, 255, 255, 255, 190, 220, 245, 210, 235, 255},
+        // Ice 7: Deep ice (dark teal)
+        {40, 120, 140, 100, 170, 190, 20, 80, 100, 60, 140, 160},
+        // Ice 8: Glacial ice (muted blue-gray)
+        {150, 170, 190, 210, 225, 240, 110, 130, 150, 170, 190, 210},
+        // Ice 9: Arctic ice (pale blue-white)
+        {210, 235, 250, 245, 250, 255, 170, 200, 230, 220, 240, 255}
+    };
+    
+    for (int v = 0; v < 9; v++) {
+        Uint8 pixels[TILE_SIZE * TILE_SIZE * 4];
+        const IcePalette& pal = palettes[v];
+        
+        for (int y = 0; y < TILE_SIZE; y++) {
+            for (int x = 0; x < TILE_SIZE; x++) {
+                int index = (y * TILE_SIZE + x) * 4;
+                
+                // Create ice pattern - crystalline structure
+                int noise = ((x * 17 + y * 23 + v * 31) * 37) % 100;
+                
+                // Ice crystal pattern - diagonal streaks
+                bool isCrystal = (x + y + v) % 7 == 0 || (x - y + v) % 9 == 0;
+                
+                Uint8 r, g, b;
+                
+                if (isCrystal) {
+                    // Crystal highlights - bright streaks
+                    r = pal.highlightR + (rand() % 15 - 7);
+                    g = pal.highlightG + (rand() % 15 - 7);
+                    b = pal.highlightB + (rand() % 15 - 7);
+                } else if (noise < 30) {
+                    // Shadow areas
+                    r = pal.shadowR + (rand() % 12 - 6);
+                    g = pal.shadowG + (rand() % 12 - 6);
+                    b = pal.shadowB + (rand() % 12 - 6);
+                } else if (noise < 70) {
+                    // Base ice color
+                    r = pal.baseR + (rand() % 20 - 10);
+                    g = pal.baseG + (rand() % 20 - 10);
+                    b = pal.baseB + (rand() % 20 - 10);
+                } else {
+                    // Accent/highlight
+                    r = pal.accentR + (rand() % 18 - 9);
+                    g = pal.accentG + (rand() % 18 - 9);
+                    b = pal.accentB + (rand() % 18 - 9);
+                }
+                
+                // Add subtle gradient for depth
+                float gradient = (float)y / TILE_SIZE;
+                r = (Uint8)(r * (0.9f + 0.1f * gradient));
+                g = (Uint8)(g * (0.9f + 0.1f * gradient));
+                b = (Uint8)(b * (0.9f + 0.1f * gradient));
+                
+                pixels[index + 0] = r;
+                pixels[index + 1] = g;
+                pixels[index + 2] = b;
+                pixels[index + 3] = 255;
+            }
+        }
+        
+        iceVariation[v] = createTextureFromPixels(pixels, TILE_SIZE, TILE_SIZE);
+    }
+}
+
+/**
+ * Create snow texture - white fluffy snow tile
+ */
+void ProceduralArt::createSnowTexture() {
+    const int TILE_SIZE = 32;
+    Uint8 pixels[TILE_SIZE * TILE_SIZE * 4];
+    
+    for (int y = 0; y < TILE_SIZE; y++) {
+        for (int x = 0; x < TILE_SIZE; x++) {
+            int index = (y * TILE_SIZE + x) * 4;
+            
+            // Snow noise pattern
+            int noise = ((x * 13 + y * 17) * 29) % 100;
+            
+            Uint8 brightness;
+            if (noise < 20) {
+                brightness = 220 + (rand() % 15);  // Slightly darker snow
+            } else if (noise < 60) {
+                brightness = 240 + (rand() % 15);  // Normal snow
+            } else {
+                brightness = 255;  // Bright snow highlights
+            }
+            
+            // Add subtle blue tint for cold appearance
+            pixels[index + 0] = brightness;
+            pixels[index + 1] = (Uint8)(brightness - 5);
+            pixels[index + 2] = (Uint8)(brightness - 2);
+            pixels[index + 3] = 255;
+        }
+    }
+    
+    snowTexture = createTextureFromPixels(pixels, TILE_SIZE, TILE_SIZE);
+}
+
+/**
  * Create tree texture - 48x64 full sprite for outdoor decoration
  * Top-down compatible: can be used as overhead tree canopy or side view
  */
@@ -623,6 +902,142 @@ void ProceduralArt::createTreeTexture() {
     }
     
     treeTexture = createTextureFromPixels(pixels, width, height);
+}
+
+/**
+ * Create 8 tree border variations for map edges
+ * Each variation is positioned to face inward from the border
+ */
+void ProceduralArt::createTreeBorderVariations() {
+    const int width = 48;
+    const int height = 64;
+    
+    // Border tree types: 0=LEFT, 1=RIGHT, 2=TOP, 3=BOTTOM, 4=TL, 5=TR, 6=BL, 7=BR
+    for (int borderType = 0; borderType < 8; borderType++) {
+        Uint8 pixels[48 * 64 * 4];
+        memset(pixels, 0, sizeof(pixels)); // Start transparent
+        
+        // Color palette - slightly different for border trees
+        const Uint32 DARK_LEAF = 0xFF2D5220;
+        const Uint32 MEDIUM_LEAF = 0xFF3CB358;
+        const Uint32 LIGHT_LEAF = 0xFF5CB85C;
+        const Uint32 BRIGHT_LEAF = 0xFF7CDB7C;
+        const Uint32 TRUNK_DARK = 0xFF4A3520;
+        const Uint32 TRUNK_LIGHT = 0xFF6B4E38;
+        
+        // Helper to set pixel
+        auto setPixel = [&](int x, int y, Uint32 color) {
+            if (x >= 0 && x < width && y >= 0 && y < height) {
+                int idx = (y * width + x) * 4;
+                pixels[idx + 0] = (color >> 16) & 0xFF;
+                pixels[idx + 1] = (color >> 8) & 0xFF;
+                pixels[idx + 2] = color & 0xFF;
+                pixels[idx + 3] = 0xFF;
+            }
+        };
+        
+        // Adjust tree position based on border type
+        int trunkX = width / 2;
+        int trunkY = 40;
+        float canopyOffsetX = 0;
+        float canopyOffsetY = 0;
+        
+        // Position tree to lean/face inward from the border
+        switch (borderType) {
+            case 0: // LEFT - tree leans right (inward)
+                canopyOffsetX = 4;
+                break;
+            case 1: // RIGHT - tree leans left (inward)
+                canopyOffsetX = -4;
+                break;
+            case 2: // TOP - tree leans down (inward)
+                canopyOffsetY = 4;
+                break;
+            case 3: // BOTTOM - tree leans up (inward)
+                canopyOffsetY = -4;
+                break;
+            case 4: // TOP-LEFT - tree leans down-right
+                canopyOffsetX = 3;
+                canopyOffsetY = 3;
+                break;
+            case 5: // TOP-RIGHT - tree leans down-left
+                canopyOffsetX = -3;
+                canopyOffsetY = 3;
+                break;
+            case 6: // BOTTOM-LEFT - tree leans up-right
+                canopyOffsetX = 3;
+                canopyOffsetY = -3;
+                break;
+            case 7: // BOTTOM-RIGHT - tree leans up-left
+                canopyOffsetX = -3;
+                canopyOffsetY = -3;
+                break;
+        }
+        
+        // Draw trunk (bottom center)
+        for (int y = trunkY; y < 62; y++) {
+            int trunkWidth = 4 + (y > 50 ? 1 : 0);
+            int centerX = static_cast<int>(trunkX + canopyOffsetX * 0.3f);
+            for (int x = centerX - trunkWidth; x <= centerX + trunkWidth; x++) {
+                if (x >= 0 && x < width) {
+                    Uint32 trunkColor = (x % 2 == 0) ? TRUNK_DARK : TRUNK_LIGHT;
+                    if (y > 55) trunkColor = TRUNK_DARK;
+                    setPixel(x, y, trunkColor);
+                }
+            }
+        }
+        
+        // Draw canopy (oval shape, shifted based on border type)
+        for (int y = 8; y < 52; y++) {
+            float normalizedY = (y - 30) / 22.0f;
+            float ovalWidth = 18.0f * sqrtf(1.0f - normalizedY * normalizedY * 0.7f);
+            
+            int centerX = static_cast<int>(width / 2 + canopyOffsetX);
+            int centerY = static_cast<int>(30 + canopyOffsetY);
+            int halfWidth = (int)ovalWidth;
+            
+            for (int x = centerX - halfWidth; x <= centerX + halfWidth; x++) {
+                if (x >= 0 && x < width) {
+                    int noise = ((x * 11 + y * 17) * 23 + borderType * 7) % 100;
+                    Uint32 leafColor;
+                    
+                    if (noise < 20) {
+                        leafColor = DARK_LEAF;
+                    } else if (noise < 50) {
+                        leafColor = MEDIUM_LEAF;
+                    } else if (noise < 75) {
+                        leafColor = LIGHT_LEAF;
+                    } else {
+                        leafColor = BRIGHT_LEAF;
+                    }
+                    
+                    // Edge shadow
+                    if (x == centerX - halfWidth || x == centerX + halfWidth || 
+                        y == 8 || y == 51) {
+                        Uint8 r = (leafColor >> 16) & 0xFF;
+                        Uint8 g = (leafColor >> 8) & 0xFF;
+                        Uint8 b = leafColor & 0xFF;
+                        r = (Uint8)(r * 0.85);
+                        g = (Uint8)(g * 0.85);
+                        b = (Uint8)(b * 0.85);
+                        leafColor = (0xFF << 24) | (r << 16) | (g << 8) | b;
+                    }
+                    
+                    setPixel(x, y, leafColor);
+                }
+            }
+        }
+        
+        // Add random leaves for organic look
+        for (int i = 0; i < 25; i++) {
+            int leafX = (rand() % 40) + 4;
+            int leafY = (rand() % 36) + 12;
+            Uint32 randomLeaf = (rand() % 2 == 0) ? LIGHT_LEAF : BRIGHT_LEAF;
+            setPixel(leafX, leafY, randomLeaf);
+        }
+        
+        treeBorder[borderType] = createTextureFromPixels(pixels, width, height);
+    }
 }
 
 /**
@@ -854,7 +1269,37 @@ SDL_Texture* ProceduralArt::getStoneWallTexture() {
 }
 
 /**
- * Get grass texture
+ * Get roof texture
+ */
+SDL_Texture* ProceduralArt::getRoofTexture() {
+    return roofTexture;
+}
+
+/**
+ * Get grass variation texture (0-8 for 3x3 grid)
+ */
+SDL_Texture* ProceduralArt::getGrassVariation(int index) {
+    if (index < 0 || index > 8) index = 0;  // Safety check
+    return grassVariation[index];
+}
+
+/**
+ * Get ice variation texture (0-8 for ice grid)
+ */
+SDL_Texture* ProceduralArt::getIceVariation(int index) {
+    if (index < 0 || index > 8) index = 0;  // Safety check
+    return iceVariation[index];
+}
+
+/**
+ * Get snow texture
+ */
+SDL_Texture* ProceduralArt::getSnowTexture() {
+    return snowTexture;
+}
+
+/**
+ * Get grass texture (original 32x32 - deprecated)
  */
 SDL_Texture* ProceduralArt::getGrassTexture() {
     return grassTexture;
@@ -865,6 +1310,14 @@ SDL_Texture* ProceduralArt::getGrassTexture() {
  */
 SDL_Texture* ProceduralArt::getTreeTexture() {
     return treeTexture;
+}
+
+/**
+ * Get tree border texture (0-7 for different border positions)
+ */
+SDL_Texture* ProceduralArt::getTreeBorder(int index) {
+    if (index < 0 || index > 7) index = 0;  // Safety check
+    return treeBorder[index];
 }
 
 /**
@@ -1012,9 +1465,38 @@ void ProceduralArt::cleanup() {
         grassTexture = nullptr;
     }
     
+    // Clean up grass variations (9 textures)
+    for (int i = 0; i < 9; i++) {
+        if (grassVariation[i] != nullptr) {
+            SDL_DestroyTexture(grassVariation[i]);
+            grassVariation[i] = nullptr;
+        }
+    }
+    
+    // Clean up ice variations (9 textures)
+    for (int i = 0; i < 9; i++) {
+        if (iceVariation[i] != nullptr) {
+            SDL_DestroyTexture(iceVariation[i]);
+            iceVariation[i] = nullptr;
+        }
+    }
+    
+    if (snowTexture != nullptr) {
+        SDL_DestroyTexture(snowTexture);
+        snowTexture = nullptr;
+    }
+    
     if (treeTexture != nullptr) {
         SDL_DestroyTexture(treeTexture);
         treeTexture = nullptr;
+    }
+    
+    // Clean up tree border variations (8 textures)
+    for (int i = 0; i < 8; i++) {
+        if (treeBorder[i] != nullptr) {
+            SDL_DestroyTexture(treeBorder[i]);
+            treeBorder[i] = nullptr;
+        }
     }
     
     if (bushTexture != nullptr) {

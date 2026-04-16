@@ -18,10 +18,13 @@ Game::Game()
     , lastFrameTime(0)
     , frameCount(0)
     , secondsSinceLastHeartbeat(0.0f)
+    , autoCloseTimer(0.0f)
+    , autoCloseDuration(0.0f)
     , inputManager(nullptr)
     , camera(nullptr)
     , proceduralArt(nullptr)
     , tileMap(nullptr)
+    , settings(nullptr)
     , playerPosition(SCREEN_WIDTH / 2.0f, SCREEN_HEIGHT / 2.0f)  // Start in center of screen
     , playerFacing(FACING_DOWN)  // Default facing direction
 {
@@ -87,6 +90,8 @@ bool Game::initialize() {
     camera = new Camera();
     proceduralArt = new ProceduralArt(renderer);
     tileMap = new TileMap(renderer, proceduralArt);
+    settings = new Settings();
+    settings->loadFromFile(Settings::getDefaultPath());
     
     // Start in fixed camera mode for indoor testing
     camera->setFixed(true);
@@ -141,6 +146,12 @@ void Game::cleanup() {
         delete camera;
         camera = nullptr;
         DEBUG_LOG("Camera destroyed");
+    }
+    
+    if (settings != nullptr) {
+        delete settings;
+        settings = nullptr;
+        DEBUG_LOG("Settings destroyed");
     }
     
     // Delete SDL resources
@@ -217,8 +228,8 @@ void Game::update(float deltaTime) {
     }
     
     // Update player position based on input
-    // PLAYER_SPEED is pixels per frame, so no deltaTime multiplication needed for frame-based movement
-    float moveSpeed = PLAYER_SPEED;
+    // Player speed is now configurable via game_settings.json
+    float moveSpeed = settings ? settings->playerSpeed : PLAYER_SPEED;
     
     if (tileMap != nullptr) {
         // Check collision at new positions BEFORE applying movement
@@ -274,12 +285,11 @@ void Game::checkWorldTransition() {
         float exitX, exitY;
         
         if (currentWorld == WorldType::INDOOR_HOUSE) {
-            // Going outside - position player WELL SOUTH of the house
-            // Outdoor house door is at approximately y=4 (out of 8 tiles)
-            // Position player at y=6 to be safely in front of the house
+            // Going outside - position player just south of the door
+            // House is at y=0 to y=4, door is at y=4, so position at y=5-6
             targetWorld = WorldType::OUTDOOR_WORLD;
             exitX = playerPosition.x;  // Keep same horizontal position
-            exitY = 280.0f;  // Well below the house (6 tiles * 48 pixels = 288, minus margin)
+            exitY = 240.0f;  // Just below the house (5 tiles * 48 = 240)
         } else {
             // Going inside - exit at top of door into the house interior
             targetWorld = WorldType::INDOOR_HOUSE;
@@ -443,6 +453,21 @@ void Game::logHeartbeat() {
 }
 
 /**
+ * Set auto-close timer
+ */
+void Game::setAutoClose(float seconds) {
+    if (seconds > 0) {
+        autoCloseDuration = seconds;
+        autoCloseTimer = 0.0f;
+        DEBUG_LOG("Auto-close enabled: application will close in %.1f seconds", seconds);
+    } else {
+        autoCloseDuration = 0.0f;
+        autoCloseTimer = 0.0f;
+        DEBUG_LOG("Auto-close disabled");
+    }
+}
+
+/**
  * Main game loop - Runs at 60 FPS with delta time calculation
  */
 int Game::run() {
@@ -478,6 +503,15 @@ int Game::run() {
         // Frame counting for heartbeat
         frameCount++;
         secondsSinceLastHeartbeat += deltaTime;
+        
+        // Check auto-close timer
+        if (autoCloseDuration > 0.0f) {
+            autoCloseTimer += deltaTime;
+            if (autoCloseTimer >= autoCloseDuration) {
+                DEBUG_LOG("Auto-close timer expired (%.1f seconds). Closing application.", autoCloseDuration);
+                shouldQuit = true;
+            }
+        }
         
         // Log performance heartbeat every ~5 seconds
         if (secondsSinceLastHeartbeat >= 5.0f) {

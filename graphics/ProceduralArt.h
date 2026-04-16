@@ -13,10 +13,15 @@ public:
     
     SDL_Texture* getWoodFloorTexture();
     SDL_Texture* getStoneWallTexture();
+    SDL_Texture* getRoofTexture();
+    SDL_Texture* getGrassVariation(int index);  // 0-8 for 3x3 grid
+    SDL_Texture* getIceVariation(int index);    // 0-8 for ice grid
+    SDL_Texture* getSnowTexture();
     
     // Outdoor textures
     SDL_Texture* getGrassTexture();
     SDL_Texture* getTreeTexture();
+    SDL_Texture* getTreeBorder(int index);  // 0-7 for border positions
     SDL_Texture* getBushTexture();
     SDL_Texture* getFenceTexture();
     
@@ -56,10 +61,15 @@ private:
     
     SDL_Texture* woodFloorTexture = nullptr;
     SDL_Texture* stoneWallTexture = nullptr;
+    SDL_Texture* roofTexture = nullptr;
     
     // Outdoor texture members
-    SDL_Texture* grassTexture = nullptr;
+    SDL_Texture* grassTexture = nullptr;           // Original grass (will be removed)
+    SDL_Texture* grassVariation[9] = {nullptr};   // 3x3 grid of grass variations (96x96)
+    SDL_Texture* iceVariation[9] = {nullptr};     // 3x3 grid of ice variations (32x32)
+    SDL_Texture* snowTexture = nullptr;           // Snow tile
     SDL_Texture* treeTexture = nullptr;
+    SDL_Texture* treeBorder[8] = {nullptr};  // 8 border tree variations
     SDL_Texture* bushTexture = nullptr;
     SDL_Texture* fenceTexture = nullptr;
     
@@ -83,8 +93,13 @@ private:
     
     void createWoodFloorTexture();
     void createStoneWallTexture();
+    void createRoofTexture();
+    void createGrassVariations();  // Creates 9 grass variations at 96x96
     void createGrassTexture();
+    void createIceVariations();    // Creates 9 ice variations at 32x32
+    void createSnowTexture();
     void createTreeTexture();
+    void createTreeBorderVariations();  // Creates 8 border tree variations
     void createBushTexture();
     void createFenceTexture();
     void createPlayerSprites();  // Creates all 8 directional sprites

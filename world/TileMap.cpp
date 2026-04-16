@@ -136,17 +136,80 @@ void TileMap::loadOutdoorWorldLayout() {
         }
     }
     
-    // House interior (wood floor)
+    // House interior - ROOF tiles (visible when outside)
     for (int y = houseTopY + 1; y < houseBottomY; y++) {
         for (int x = houseLeftX + 1; x < houseRightX; x++) {
             if (x >= 0 && x < currentWidthTiles) {
-                tiles[y][x] = TileType::FLOOR_WOOD;
+                tiles[y][x] = TileType::ROOF;
             }
         }
     }
     
-    // NOTE: NO TREES, BUSHES, or FENCES - pure open grass field
-    // The entire area outside the house is walkable grass
+    // Add tree border around the map edges
+    // Left border (full height)
+    for (int y = 0; y < currentHeightTiles; y++) {
+        if (0 < currentWidthTiles) {
+            tiles[y][0] = TileType::TREE_LEFT;
+        }
+    }
+    
+    // Right border (full height)
+    for (int y = 0; y < currentHeightTiles; y++) {
+        if (currentWidthTiles - 1 >= 0) {
+            tiles[y][currentWidthTiles - 1] = TileType::TREE_RIGHT;
+        }
+    }
+    
+    // Top border (excluding corners, already set by left/right borders)
+    for (int x = 1; x < currentWidthTiles - 1; x++) {
+        if (x >= 0 && x < currentWidthTiles) {
+            tiles[0][x] = TileType::TREE_TOP;
+        }
+    }
+    
+    // Bottom border (excluding corners)
+    for (int x = 1; x < currentWidthTiles - 1; x++) {
+        if (x >= 0 && x < currentWidthTiles) {
+            tiles[currentHeightTiles - 1][x] = TileType::TREE_BOTTOM;
+        }
+    }
+    
+    // Corner trees (override the border trees at corners)
+    if (0 < currentWidthTiles && 0 < currentHeightTiles) {
+        tiles[0][0] = TileType::TREE_CORNER_TL;  // Top-left
+    }
+    if (currentWidthTiles - 1 >= 0 && 0 < currentHeightTiles) {
+        tiles[0][currentWidthTiles - 1] = TileType::TREE_CORNER_TR;  // Top-right
+    }
+    if (0 < currentWidthTiles && currentHeightTiles - 1 >= 0) {
+        tiles[currentHeightTiles - 1][0] = TileType::TREE_CORNER_BL;  // Bottom-left
+    }
+    if (currentWidthTiles - 1 >= 0 && currentHeightTiles - 1 >= 0) {
+        tiles[currentHeightTiles - 1][currentWidthTiles - 1] = TileType::TREE_CORNER_BR;  // Bottom-right
+    }
+    
+    // Add ice biome on the right side of the map (last 20 tiles)
+    int iceStartX = currentWidthTiles - 21;  // Start ice 20 tiles from the right edge
+    for (int y = 0; y < currentHeightTiles; y++) {
+        for (int x = iceStartX; x < currentWidthTiles - 1; x++) {  // Exclude rightmost border tree
+            // Randomly select one of 9 ice variations for natural variety
+            int iceIndex = (x + y * 3) % 9;  // Pseudo-random based on position
+            tiles[y][x] = (TileType)iceIndex;  // ICE_1 through ICE_9
+        }
+    }
+    
+    // Add snow tiles in a transition zone between grass and ice
+    int snowStartX = iceStartX - 3;
+    for (int y = 0; y < currentHeightTiles; y++) {
+        for (int x = snowStartX; x < iceStartX; x++) {
+            if (x >= 0 && x < currentWidthTiles) {
+                // Mix of grass and snow for transition
+                if ((x + y) % 2 == 0) {
+                    tiles[y][x] = TileType::SNOW;
+                }
+            }
+        }
+    }
 }
 
 void TileMap::render(SDL_Renderer* renderer, int offsetX, int offsetY) {
@@ -173,7 +236,33 @@ void TileMap::drawTile(SDL_Renderer* renderer, int gridX, int gridY, int offsetX
             texture = proceduralArt->getWoodFloorTexture();
             break;
         case TileType::GRASS:
-            texture = proceduralArt->getGrassTexture();
+            // Randomly select one of 9 grass variations for natural variety
+            {
+                int grassIndex = (gridX + gridY) % 9;  // Pseudo-random based on position
+                texture = proceduralArt->getGrassVariation(grassIndex);
+            }
+            break;
+        case TileType::SNOW:
+            texture = proceduralArt->getSnowTexture();
+            break;
+        case TileType::ICE_1:
+        case TileType::ICE_2:
+        case TileType::ICE_3:
+        case TileType::ICE_4:
+        case TileType::ICE_5:
+        case TileType::ICE_6:
+        case TileType::ICE_7:
+        case TileType::ICE_8:
+        case TileType::ICE_9:
+            // Map tile types to ice indices (ICE_1 = 0, ICE_2 = 1, etc.)
+            {
+                int iceIndex = static_cast<int>(tiles[gridY][gridX]) - static_cast<int>(TileType::ICE_1);
+                if (iceIndex < 0 || iceIndex > 8) iceIndex = 0;
+                texture = proceduralArt->getIceVariation(iceIndex);
+            }
+            break;
+        case TileType::ROOF:
+            texture = proceduralArt->getRoofTexture();
             break;
         case TileType::TREE:
             // Tree is 48x64, so we need special handling for centering
@@ -185,6 +274,42 @@ void TileMap::drawTile(SDL_Renderer* renderer, int gridX, int gridY, int offsetX
                 SDL_Rect destRect;
                 destRect.x = screenX;  // Center horizontally in tile
                 destRect.y = screenY - 16; // Offset up slightly for full tree height
+                destRect.w = 48;
+                destRect.h = 64;
+                
+                SDL_RenderCopy(renderer, texture, nullptr, &destRect);
+            }
+            return;  // Special case, return early
+        case TileType::TREE_LEFT:
+        case TileType::TREE_RIGHT:
+        case TileType::TREE_TOP:
+        case TileType::TREE_BOTTOM:
+        case TileType::TREE_CORNER_TL:
+        case TileType::TREE_CORNER_TR:
+        case TileType::TREE_CORNER_BL:
+        case TileType::TREE_CORNER_BR:
+            // Border trees - 48x64, positioned based on type
+            {
+                int borderIndex = 0;
+                switch (tiles[gridY][gridX]) {
+                    case TileType::TREE_LEFT: borderIndex = 0; break;
+                    case TileType::TREE_RIGHT: borderIndex = 1; break;
+                    case TileType::TREE_TOP: borderIndex = 2; break;
+                    case TileType::TREE_BOTTOM: borderIndex = 3; break;
+                    case TileType::TREE_CORNER_TL: borderIndex = 4; break;
+                    case TileType::TREE_CORNER_TR: borderIndex = 5; break;
+                    case TileType::TREE_CORNER_BL: borderIndex = 6; break;
+                    case TileType::TREE_CORNER_BR: borderIndex = 7; break;
+                    default: borderIndex = 0; break;
+                }
+                
+                texture = proceduralArt->getTreeBorder(borderIndex);
+                int screenX = offsetX + gridX * TILE_SIZE;
+                int screenY = offsetY + gridY * TILE_SIZE;
+                
+                SDL_Rect destRect;
+                destRect.x = screenX;
+                destRect.y = screenY - 16; // Offset up for full tree height
                 destRect.w = 48;
                 destRect.h = 64;
                 
@@ -228,14 +353,17 @@ void TileMap::drawTile(SDL_Renderer* renderer, int gridX, int gridY, int offsetX
     
     if (texture == nullptr) return;
     
+    // Grass variations are 96px (3x original 32px), other tiles use TILE_SIZE (48px)
+    int tileSize = (tiles[gridY][gridX] == TileType::GRASS) ? 96 : TILE_SIZE;
+    
     int screenX = offsetX + gridX * TILE_SIZE;
     int screenY = offsetY + gridY * TILE_SIZE;
     
     SDL_Rect destRect;
     destRect.x = screenX;
     destRect.y = screenY;
-    destRect.w = TILE_SIZE;
-    destRect.h = TILE_SIZE;
+    destRect.w = tileSize;
+    destRect.h = tileSize;
     
     SDL_RenderCopy(renderer, texture, nullptr, &destRect);
     
@@ -269,8 +397,24 @@ bool TileMap::checkCollision(float x, float y) const {
             return false;
         case TileType::GRASS:
             return false;
+        case TileType::ROOF:
+            return false;  // Roof is walkable when outside
         case TileType::DOOR:
             return false;  // Door is passable
+        case TileType::TREE:
+        case TileType::TREE_LEFT:
+        case TileType::TREE_RIGHT:
+        case TileType::TREE_TOP:
+        case TileType::TREE_BOTTOM:
+        case TileType::TREE_CORNER_TL:
+        case TileType::TREE_CORNER_TR:
+        case TileType::TREE_CORNER_BL:
+        case TileType::TREE_CORNER_BR:
+            return false;  // Trees are non-colliding decorations
+        case TileType::BUSH:
+            return false;  // Bushes are non-colliding decorations
+        case TileType::FENCE:
+            return false;  // Fences are non-colliding decorations
         default:
             return true;  // Walls are solid
     }
