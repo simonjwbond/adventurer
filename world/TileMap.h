@@ -90,6 +90,11 @@ public:
      */
     void loadOutdoorWorldLayout();
     
+    /**
+     * Load desert biome world layout
+     */
+    void loadDesertWorldLayout();
+    
 private:
     static const int TILE_SIZE = 48;               // HD tiles for better display (48x48 pixels)
     static const int DEFAULT_ROOM_WIDTH_TILES = 16;

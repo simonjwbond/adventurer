@@ -29,6 +29,14 @@ ProceduralArt::ProceduralArt(SDL_Renderer* ren)
     wallEdgeHorizontal = stoneWallTexture;
     wallEdgeVertical = stoneWallTexture;
     
+    // Create desert biome textures
+    createSandTextures();
+    createCactusTextures();
+    createDesertVegetationTextures();
+    createRockTextures();
+    createDesertStructureTextures();
+    createDesertDetailTextures();
+    
     // Create all 8 directional player sprites
     createPlayerSprites();
 }
@@ -1446,6 +1454,1133 @@ SDL_Texture* ProceduralArt::getPlayerSpriteUpRight(int frame) {
     return playerSpriteUpRight[frame];
 }
 
+
+/**
+ * Get desert ground texture - Sand
+ */
+SDL_Texture* ProceduralArt::getSandTexture() {
+    if (sandTexture != nullptr) return sandTexture;
+    createSandTextures();
+    return sandTexture;
+}
+
+/**
+ * Get dark sand texture
+ */
+SDL_Texture* ProceduralArt::getSandDarkTexture() {
+    if (sandDarkTexture != nullptr) return sandDarkTexture;
+    createSandTextures();
+    return sandDarkTexture;
+}
+
+/**
+ * Get sandy rocky texture
+ */
+SDL_Texture* ProceduralArt::getSandRockyTexture() {
+    if (sandRockyTexture != nullptr) return sandRockyTexture;
+    createSandTextures();
+    return sandRockyTexture;
+}
+
+/**
+ * Get cracked earth texture
+ */
+SDL_Texture* ProceduralArt::getCrackedEarthTexture() {
+    if (crackedEarthTexture != nullptr) return crackedEarthTexture;
+    createSandTextures();
+    return crackedEarthTexture;
+}
+
+/**
+ * Get rocky ground texture
+ */
+SDL_Texture* ProceduralArt::getRockyGroundTexture() {
+    if (rockyGroundTexture != nullptr) return rockyGroundTexture;
+    createSandTextures();
+    return rockyGroundTexture;
+}
+
+/**
+ * Create all sand/ground textures for desert biome
+ */
+void ProceduralArt::createSandTextures() {
+    const int TILE_SIZE = 32;
+    
+    // Sand - Light tan base with subtle variation
+    {
+        Uint8 pixels[TILE_SIZE * TILE_SIZE * 4];
+        const Uint32 SAND_BASE = 0xFFE6C9A8;
+        const Uint32 SAND_LIGHT = 0xFFEEE8D5;
+        const Uint32 SAND_DARK = 0xFFD4B896;
+        
+        for (int y = 0; y < TILE_SIZE; y++) {
+            for (int x = 0; x < TILE_SIZE; x++) {
+                int idx = (y * TILE_SIZE + x) * 4;
+                // Base sand color with noise
+                int noise = ((x * 17 + y * 31) % 7) - 3;
+                Uint32 color = (noise > 0) ? SAND_LIGHT : SAND_DARK;
+                if (((x + y) % 5) == 0) color = SAND_BASE;
+                
+                pixels[idx + 0] = (color >> 16) & 0xFF;
+                pixels[idx + 1] = (color >> 8) & 0xFF;
+                pixels[idx + 2] = color & 0xFF;
+                pixels[idx + 3] = 0xFF;
+            }
+        }
+        sandTexture = createTextureFromPixels(pixels, TILE_SIZE, TILE_SIZE);
+    }
+    
+    // Dark Sand - Damp/oasis sand
+    {
+        Uint8 pixels[TILE_SIZE * TILE_SIZE * 4];
+        const Uint32 SAND_DARK_BASE = 0xFFC4A57B;
+        const Uint32 SAND_DARKER = 0xFFA68B5B;
+        
+        for (int y = 0; y < TILE_SIZE; y++) {
+            for (int x = 0; x < TILE_SIZE; x++) {
+                int idx = (y * TILE_SIZE + x) * 4;
+                int noise = ((x * 13 + y * 23) % 5) - 2;
+                Uint32 color = (noise > 0) ? SAND_DARK_BASE : SAND_DARKER;
+                
+                pixels[idx + 0] = (color >> 16) & 0xFF;
+                pixels[idx + 1] = (color >> 8) & 0xFF;
+                pixels[idx + 2] = color & 0xFF;
+                pixels[idx + 3] = 0xFF;
+            }
+        }
+        sandDarkTexture = createTextureFromPixels(pixels, TILE_SIZE, TILE_SIZE);
+    }
+    
+    // Sandy Rocky - Sand with small rocks
+    {
+        Uint8 pixels[TILE_SIZE * TILE_SIZE * 4];
+        const Uint32 SAND_BASE = 0xFFE6C9A8;
+        const Uint32 ROCK_GRAY = 0xFF8B7355;
+        
+        for (int y = 0; y < TILE_SIZE; y++) {
+            for (int x = 0; x < TILE_SIZE; x++) {
+                int idx = (y * TILE_SIZE + x) * 4;
+                Uint32 color = SAND_BASE;
+                
+                // Add small rocks at specific positions
+                if (((x * y) % 47) < 3 && (x > 4 && x < 28 && y > 4 && y < 28)) {
+                    color = ROCK_GRAY;
+                }
+                
+                pixels[idx + 0] = (color >> 16) & 0xFF;
+                pixels[idx + 1] = (color >> 8) & 0xFF;
+                pixels[idx + 2] = color & 0xFF;
+                pixels[idx + 3] = 0xFF;
+            }
+        }
+        sandRockyTexture = createTextureFromPixels(pixels, TILE_SIZE, TILE_SIZE);
+    }
+    
+    // Cracked Earth - Dry mud with crack patterns
+    {
+        Uint8 pixels[TILE_SIZE * TILE_SIZE * 4];
+        const Uint32 MUD_BASE = 0xFFB89066;
+        const Uint32 CRACK_COLOR = 0xFF5C4033;
+        
+        for (int y = 0; y < TILE_SIZE; y++) {
+            for (int x = 0; x < TILE_SIZE; x++) {
+                int idx = (y * TILE_SIZE + x) * 4;
+                Uint32 color = MUD_BASE;
+                
+                // Create crack pattern
+                if (x % 8 == 0 || y % 8 == 0 || (x + y) % 11 == 0) {
+                    color = CRACK_COLOR;
+                }
+                
+                pixels[idx + 0] = (color >> 16) & 0xFF;
+                pixels[idx + 1] = (color >> 8) & 0xFF;
+                pixels[idx + 2] = color & 0xFF;
+                pixels[idx + 3] = 0xFF;
+            }
+        }
+        crackedEarthTexture = createTextureFromPixels(pixels, TILE_SIZE, TILE_SIZE);
+    }
+    
+    // Rocky Ground - More rocks, less sand
+    {
+        Uint8 pixels[TILE_SIZE * TILE_SIZE * 4];
+        const Uint32 SAND_BASE = 0xFFD4B896;
+        const Uint32 ROCK_GRAY = 0xFF8B7355;
+        const Uint32 ROCK_DARK = 0xFF6B5344;
+        
+        for (int y = 0; y < TILE_SIZE; y++) {
+            for (int x = 0; x < TILE_SIZE; x++) {
+                int idx = (y * TILE_SIZE + x) * 4;
+                Uint32 color = SAND_BASE;
+                
+                // More rocks
+                int rockPattern = ((x * 17 + y * 23) % 10);
+                if (rockPattern < 4) {
+                    color = (rockPattern < 2) ? ROCK_GRAY : ROCK_DARK;
+                }
+                
+                pixels[idx + 0] = (color >> 16) & 0xFF;
+                pixels[idx + 1] = (color >> 8) & 0xFF;
+                pixels[idx + 2] = color & 0xFF;
+                pixels[idx + 3] = 0xFF;
+            }
+        }
+        rockyGroundTexture = createTextureFromPixels(pixels, TILE_SIZE, TILE_SIZE);
+    }
+}
+
+/**
+ * Get Saguaro cactus texture
+ */
+SDL_Texture* ProceduralArt::getCactusSaguaro() {
+    if (cactusSaguaroTexture != nullptr) return cactusSaguaroTexture;
+    createCactusTextures();
+    return cactusSaguaroTexture;
+}
+
+/**
+ * Get Saguaro with 2 arms
+ */
+SDL_Texture* ProceduralArt::getCactusSaguaro2Arms() {
+    if (cactusSaguaro2ArmsTexture != nullptr) return cactusSaguaro2ArmsTexture;
+    createCactusTextures();
+    return cactusSaguaro2ArmsTexture;
+}
+
+/**
+ * Get Saguaro with 3 arms
+ */
+SDL_Texture* ProceduralArt::getCactusSaguaro3Arms() {
+    if (cactusSaguaro3ArmsTexture != nullptr) return cactusSaguaro3ArmsTexture;
+    createCactusTextures();
+    return cactusSaguaro3ArmsTexture;
+}
+
+/**
+ * Get Prickly Pear cactus
+ */
+SDL_Texture* ProceduralArt::getCactusPricklyPear() {
+    if (cactusPricklyPearTexture != nullptr) return cactusPricklyPearTexture;
+    createCactusTextures();
+    return cactusPricklyPearTexture;
+}
+
+/**
+ * Get Cholla cactus
+ */
+SDL_Texture* ProceduralArt::getCactusCholla() {
+    if (cactusChollaTexture != nullptr) return cactusChollaTexture;
+    createCactusTextures();
+    return cactusChollaTexture;
+}
+
+/**
+ * Create all cactus textures
+ */
+void ProceduralArt::createCactusTextures() {
+    const int WIDTH = 32;
+    const int HEIGHT = 64;
+    
+    // Saguaro - Tall cactus without arms
+    {
+        Uint8 pixels[WIDTH * HEIGHT * 4];
+        memset(pixels, 0, sizeof(pixels));
+        const Uint32 CACTUS_GREEN = 0xFF6B8E23;
+        const Uint32 CACTUS_SHADOW = 0xFF556B2F;
+        
+        // Main stem
+        for (int y = 8; y < HEIGHT - 8; y++) {
+            for (int x = 12; x < 20; x++) {
+                int idx = (y * WIDTH + x) * 4;
+                Uint32 color = (x < 16) ? CACTUS_GREEN : CACTUS_SHADOW;
+                pixels[idx + 0] = (color >> 16) & 0xFF;
+                pixels[idx + 1] = (color >> 8) & 0xFF;
+                pixels[idx + 2] = color & 0xFF;
+                pixels[idx + 3] = 0xFF;
+            }
+        }
+        // Top dome
+        for (int y = 4; y < 12; y++) {
+            for (int x = 10 + (y - 4); x < 22 - (y - 4); x++) {
+                if (x >= 12 && x < 20) continue;
+                int idx = (y * WIDTH + x) * 4;
+                pixels[idx + 0] = (CACTUS_GREEN >> 16) & 0xFF;
+                pixels[idx + 1] = (CACTUS_GREEN >> 8) & 0xFF;
+                pixels[idx + 2] = CACTUS_GREEN & 0xFF;
+                pixels[idx + 3] = 0xFF;
+            }
+        }
+        cactusSaguaroTexture = createTextureFromPixels(pixels, WIDTH, HEIGHT);
+    }
+    
+    // Saguaro with 2 arms
+    {
+        Uint8 pixels[WIDTH * HEIGHT * 4];
+        memset(pixels, 0, sizeof(pixels));
+        const Uint32 CACTUS_GREEN = 0xFF6B8E23;
+        const Uint32 CACTUS_SHADOW = 0xFF556B2F;
+        
+        // Main stem
+        for (int y = 8; y < HEIGHT - 8; y++) {
+            for (int x = 12; x < 20; x++) {
+                int idx = (y * WIDTH + x) * 4;
+                Uint32 color = (x < 16) ? CACTUS_GREEN : CACTUS_SHADOW;
+                pixels[idx + 0] = (color >> 16) & 0xFF;
+                pixels[idx + 1] = (color >> 8) & 0xFF;
+                pixels[idx + 2] = color & 0xFF;
+                pixels[idx + 3] = 0xFF;
+            }
+        }
+        // Left arm
+        for (int y = 20; y < 32; y++) {
+            for (int x = 6; x < 12; x++) {
+                int idx = (y * WIDTH + x) * 4;
+                pixels[idx + 0] = (CACTUS_GREEN >> 16) & 0xFF;
+                pixels[idx + 1] = (CACTUS_GREEN >> 8) & 0xFF;
+                pixels[idx + 2] = CACTUS_GREEN & 0xFF;
+                pixels[idx + 3] = 0xFF;
+            }
+        }
+        // Right arm
+        for (int y = 20; y < 32; y++) {
+            for (int x = 20; x < 26; x++) {
+                int idx = (y * WIDTH + x) * 4;
+                pixels[idx + 0] = (CACTUS_GREEN >> 16) & 0xFF;
+                pixels[idx + 1] = (CACTUS_GREEN >> 8) & 0xFF;
+                pixels[idx + 2] = CACTUS_GREEN & 0xFF;
+                pixels[idx + 3] = 0xFF;
+            }
+        }
+        cactusSaguaro2ArmsTexture = createTextureFromPixels(pixels, WIDTH, HEIGHT);
+    }
+    
+    // Saguaro with 3 arms
+    {
+        Uint8 pixels[WIDTH * HEIGHT * 4];
+        memset(pixels, 0, sizeof(pixels));
+        const Uint32 CACTUS_GREEN = 0xFF6B8E23;
+        const Uint32 CACTUS_SHADOW = 0xFF556B2F;
+        
+        // Main stem
+        for (int y = 8; y < HEIGHT - 8; y++) {
+            for (int x = 12; x < 20; x++) {
+                int idx = (y * WIDTH + x) * 4;
+                Uint32 color = (x < 16) ? CACTUS_GREEN : CACTUS_SHADOW;
+                pixels[idx + 0] = (color >> 16) & 0xFF;
+                pixels[idx + 1] = (color >> 8) & 0xFF;
+                pixels[idx + 2] = color & 0xFF;
+                pixels[idx + 3] = 0xFF;
+            }
+        }
+        // Left arm
+        for (int y = 18; y < 30; y++) {
+            for (int x = 6; x < 12; x++) {
+                int idx = (y * WIDTH + x) * 4;
+                pixels[idx + 0] = (CACTUS_GREEN >> 16) & 0xFF;
+                pixels[idx + 1] = (CACTUS_GREEN >> 8) & 0xFF;
+                pixels[idx + 2] = CACTUS_GREEN & 0xFF;
+                pixels[idx + 3] = 0xFF;
+            }
+        }
+        // Middle arm
+        for (int y = 22; y < 34; y++) {
+            for (int x = 14; x < 18; x++) {
+                int idx = (y * WIDTH + x) * 4;
+                pixels[idx + 0] = (CACTUS_GREEN >> 16) & 0xFF;
+                pixels[idx + 1] = (CACTUS_GREEN >> 8) & 0xFF;
+                pixels[idx + 2] = CACTUS_GREEN & 0xFF;
+                pixels[idx + 3] = 0xFF;
+            }
+        }
+        // Right arm
+        for (int y = 20; y < 32; y++) {
+            for (int x = 20; x < 26; x++) {
+                int idx = (y * WIDTH + x) * 4;
+                pixels[idx + 0] = (CACTUS_GREEN >> 16) & 0xFF;
+                pixels[idx + 1] = (CACTUS_GREEN >> 8) & 0xFF;
+                pixels[idx + 2] = CACTUS_GREEN & 0xFF;
+                pixels[idx + 3] = 0xFF;
+            }
+        }
+        cactusSaguaro3ArmsTexture = createTextureFromPixels(pixels, WIDTH, HEIGHT);
+    }
+    
+    // Prickly Pear - Flat pad cactus
+    {
+        Uint8 pixels[WIDTH * HEIGHT * 4];
+        memset(pixels, 0, sizeof(pixels));
+        const Uint32 CACTUS_GREEN = 0xFF6B8E23;
+        
+        // Main pad (oval shape)
+        for (int y = 16; y < 48; y++) {
+            for (int x = 8; x < 24; x++) {
+                int idx = (y * WIDTH + x) * 4;
+                pixels[idx + 0] = (CACTUS_GREEN >> 16) & 0xFF;
+                pixels[idx + 1] = (CACTUS_GREEN >> 8) & 0xFF;
+                pixels[idx + 2] = CACTUS_GREEN & 0xFF;
+                pixels[idx + 3] = 0xFF;
+            }
+        }
+        // Smaller pad on top
+        for (int y = 8; y < 20; y++) {
+            for (int x = 12; x < 22; x++) {
+                int idx = (y * WIDTH + x) * 4;
+                pixels[idx + 0] = (CACTUS_GREEN >> 16) & 0xFF;
+                pixels[idx + 1] = (CACTUS_GREEN >> 8) & 0xFF;
+                pixels[idx + 2] = CACTUS_GREEN & 0xFF;
+                pixels[idx + 3] = 0xFF;
+            }
+        }
+        cactusPricklyPearTexture = createTextureFromPixels(pixels, WIDTH, HEIGHT);
+    }
+    
+    // Cholla - Cylindrical segmented cactus
+    {
+        Uint8 pixels[WIDTH * HEIGHT * 4];
+        memset(pixels, 0, sizeof(pixels));
+        const Uint32 CACTUS_GREEN = 0xFF6B8E23;
+        const Uint32 CACTUS_SPINE = 0xFFA0A0A0;
+        
+        // Multiple segments
+        for (int seg = 0; seg < 4; seg++) {
+            int startY = 8 + seg * 12;
+            for (int y = startY; y < startY + 10; y++) {
+                for (int x = 10; x < 22; x++) {
+                    int idx = (y * WIDTH + x) * 4;
+                    Uint32 color = ((x + y + seg) % 3 == 0) ? CACTUS_SPINE : CACTUS_GREEN;
+                    pixels[idx + 0] = (color >> 16) & 0xFF;
+                    pixels[idx + 1] = (color >> 8) & 0xFF;
+                    pixels[idx + 2] = color & 0xFF;
+                    pixels[idx + 3] = 0xFF;
+                }
+            }
+        }
+        cactusChollaTexture = createTextureFromPixels(pixels, WIDTH, HEIGHT);
+    }
+}
+
+/**
+ * Get desert bush texture
+ */
+SDL_Texture* ProceduralArt::getDesertBushTexture() {
+    if (desertBushTexture != nullptr) return desertBushTexture;
+    createDesertVegetationTextures();
+    return desertBushTexture;
+}
+
+/**
+ * Get desert grass texture
+ */
+SDL_Texture* ProceduralArt::getDesertGrassTexture() {
+    if (desertGrassTexture != nullptr) return desertGrassTexture;
+    createDesertVegetationTextures();
+    return desertGrassTexture;
+}
+
+/**
+ * Get Palo Verde tree texture
+ */
+SDL_Texture* ProceduralArt::getPaloVerdeTexture() {
+    if (paloVerdeTexture != nullptr) return paloVerdeTexture;
+    createDesertVegetationTextures();
+    return paloVerdeTexture;
+}
+
+/**
+ * Get Yucca texture
+ */
+SDL_Texture* ProceduralArt::getYuccaTexture() {
+    if (yuccaTexture != nullptr) return yuccaTexture;
+    createDesertVegetationTextures();
+    return yuccaTexture;
+}
+
+/**
+ * Get Agave texture
+ */
+SDL_Texture* ProceduralArt::getAgaveTexture() {
+    if (agaveTexture != nullptr) return agaveTexture;
+    createDesertVegetationTextures();
+    return agaveTexture;
+}
+
+/**
+ * Create all desert vegetation textures
+ */
+void ProceduralArt::createDesertVegetationTextures() {
+    const int WIDTH = 32;
+    const int HEIGHT = 32;
+    
+    // Desert Bush - Sparse shrub
+    {
+        Uint8 pixels[WIDTH * HEIGHT * 4];
+        memset(pixels, 0, sizeof(pixels));
+        const Uint32 BUSH_COLOR = 0xFF8B7D6B;
+        const Uint32 BUSH_DARK = 0xFF6B5D4B;
+        
+        for (int y = 12; y < 28; y++) {
+            for (int x = 8; x < 24; x++) {
+                if (((x * y) % 7) < 4) {
+                    int idx = (y * WIDTH + x) * 4;
+                    Uint32 color = ((x + y) % 3 == 0) ? BUSH_DARK : BUSH_COLOR;
+                    pixels[idx + 0] = (color >> 16) & 0xFF;
+                    pixels[idx + 1] = (color >> 8) & 0xFF;
+                    pixels[idx + 2] = color & 0xFF;
+                    pixels[idx + 3] = 0xFF;
+                }
+            }
+        }
+        desertBushTexture = createTextureFromPixels(pixels, WIDTH, HEIGHT);
+    }
+    
+    // Desert Grass - Tuft of dry grass
+    {
+        Uint8 pixels[WIDTH * HEIGHT * 4];
+        memset(pixels, 0, sizeof(pixels));
+        const Uint32 GRASS_COLOR = 0xFFC4A57B;
+        const Uint32 GRASS_DARK = 0xFFA68B5B;
+        
+        for (int x = 10; x < 22; x++) {
+            int height = 8 + ((x * 7) % 8);
+            for (int y = 24 - height; y < 24; y++) {
+                int idx = (y * WIDTH + x) * 4;
+                Uint32 color = ((x + y) % 2 == 0) ? GRASS_COLOR : GRASS_DARK;
+                pixels[idx + 0] = (color >> 16) & 0xFF;
+                pixels[idx + 1] = (color >> 8) & 0xFF;
+                pixels[idx + 2] = color & 0xFF;
+                pixels[idx + 3] = 0xFF;
+            }
+        }
+        desertGrassTexture = createTextureFromPixels(pixels, WIDTH, HEIGHT);
+    }
+    
+    // Palo Verde - Green-barked desert tree
+    {
+        Uint8 pixels[WIDTH * HEIGHT * 4];
+        memset(pixels, 0, sizeof(pixels));
+        const Uint32 TRUNK_COLOR = 0xFF6B8E23;
+        const Uint32 LEAF_COLOR = 0xFF7CB342;
+        
+        // Trunk
+        for (int y = 16; y < 30; y++) {
+            for (int x = 14; x < 18; x++) {
+                int idx = (y * WIDTH + x) * 4;
+                pixels[idx + 0] = (TRUNK_COLOR >> 16) & 0xFF;
+                pixels[idx + 1] = (TRUNK_COLOR >> 8) & 0xFF;
+                pixels[idx + 2] = TRUNK_COLOR & 0xFF;
+                pixels[idx + 3] = 0xFF;
+            }
+        }
+        // Foliage
+        for (int y = 4; y < 20; y++) {
+            for (int x = 6; x < 26; x++) {
+                if (((x - 16) * (x - 16) + (y - 12) * (y - 12)) < 100) {
+                    int idx = (y * WIDTH + x) * 4;
+                    pixels[idx + 0] = (LEAF_COLOR >> 16) & 0xFF;
+                    pixels[idx + 1] = (LEAF_COLOR >> 8) & 0xFF;
+                    pixels[idx + 2] = LEAF_COLOR & 0xFF;
+                    pixels[idx + 3] = 0xFF;
+                }
+            }
+        }
+        paloVerdeTexture = createTextureFromPixels(pixels, WIDTH, HEIGHT);
+    }
+    
+    // Yucca - Spiky plant
+    {
+        Uint8 pixels[WIDTH * HEIGHT * 4];
+        memset(pixels, 0, sizeof(pixels));
+        const Uint32 YUCCA_GREEN = 0xFF6B8E23;
+        
+        // Spiky leaves radiating from center
+        for (int i = 0; i < 8; i++) {
+            float angle = (i * 45) * 3.14159 / 180;
+            for (int len = 0; len < 14; len++) {
+                int x = 16 + (int)(len * 0.7 * cos(angle));
+                int y = 16 + (int)(len * 0.7 * sin(angle));
+                if (x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT) {
+                    int idx = (y * WIDTH + x) * 4;
+                    pixels[idx + 0] = (YUCCA_GREEN >> 16) & 0xFF;
+                    pixels[idx + 1] = (YUCCA_GREEN >> 8) & 0xFF;
+                    pixels[idx + 2] = YUCCA_GREEN & 0xFF;
+                    pixels[idx + 3] = 0xFF;
+                }
+            }
+        }
+        yuccaTexture = createTextureFromPixels(pixels, WIDTH, HEIGHT);
+    }
+    
+    // Agave - Large succulent
+    {
+        Uint8 pixels[WIDTH * HEIGHT * 4];
+        memset(pixels, 0, sizeof(pixels));
+        const Uint32 AGAVE_GREEN = 0xFF7CB342;
+        const Uint32 AGAVE_DARK = 0xFF558B2F;
+        
+        // Rosette pattern
+        for (int i = 0; i < 12; i++) {
+            float angle = (i * 30) * 3.14159 / 180;
+            for (int len = 2; len < 16; len++) {
+                int x = 16 + (int)(len * cos(angle));
+                int y = 16 + (int)(len * sin(angle));
+                if (x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT) {
+                    int idx = (y * WIDTH + x) * 4;
+                    Uint32 color = (len % 2 == 0) ? AGAVE_GREEN : AGAVE_DARK;
+                    pixels[idx + 0] = (color >> 16) & 0xFF;
+                    pixels[idx + 1] = (color >> 8) & 0xFF;
+                    pixels[idx + 2] = color & 0xFF;
+                    pixels[idx + 3] = 0xFF;
+                }
+            }
+        }
+        agaveTexture = createTextureFromPixels(pixels, WIDTH, HEIGHT);
+    }
+}
+
+/**
+ * Get small rock texture
+ */
+SDL_Texture* ProceduralArt::getRockSmallTexture() {
+    if (rockSmallTexture != nullptr) return rockSmallTexture;
+    createRockTextures();
+    return rockSmallTexture;
+}
+
+/**
+ * Get medium rock texture
+ */
+SDL_Texture* ProceduralArt::getRockMediumTexture() {
+    if (rockMediumTexture != nullptr) return rockMediumTexture;
+    createRockTextures();
+    return rockMediumTexture;
+}
+
+/**
+ * Get large rock texture
+ */
+SDL_Texture* ProceduralArt::getRockLargeTexture() {
+    if (rockLargeTexture != nullptr) return rockLargeTexture;
+    createRockTextures();
+    return rockLargeTexture;
+}
+
+/**
+ * Get rock formation texture
+ */
+SDL_Texture* ProceduralArt::getRockFormationTexture() {
+    if (rockFormationTexture != nullptr) return rockFormationTexture;
+    createRockTextures();
+    return rockFormationTexture;
+}
+
+/**
+ * Create all rock textures
+ */
+void ProceduralArt::createRockTextures() {
+    const int WIDTH = 32;
+    const int HEIGHT = 32;
+    
+    // Small Rock
+    {
+        Uint8 pixels[WIDTH * HEIGHT * 4];
+        memset(pixels, 0, sizeof(pixels));
+        const Uint32 ROCK_GRAY = 0xFF8B7355;
+        const Uint32 ROCK_DARK = 0xFF6B5344;
+        
+        for (int y = 14; y < 22; y++) {
+            for (int x = 10; x < 22; x++) {
+                if (((x - 16) * (x - 16) + (y - 18) * (y - 18)) < 25) {
+                    int idx = (y * WIDTH + x) * 4;
+                    Uint32 color = ((x + y) % 3 == 0) ? ROCK_DARK : ROCK_GRAY;
+                    pixels[idx + 0] = (color >> 16) & 0xFF;
+                    pixels[idx + 1] = (color >> 8) & 0xFF;
+                    pixels[idx + 2] = color & 0xFF;
+                    pixels[idx + 3] = 0xFF;
+                }
+            }
+        }
+        rockSmallTexture = createTextureFromPixels(pixels, WIDTH, HEIGHT);
+    }
+    
+    // Medium Boulder
+    {
+        Uint8 pixels[WIDTH * HEIGHT * 4];
+        memset(pixels, 0, sizeof(pixels));
+        const Uint32 ROCK_GRAY = 0xFF8B7355;
+        const Uint32 ROCK_DARK = 0xFF6B5344;
+        
+        for (int y = 8; y < 26; y++) {
+            for (int x = 6; x < 26; x++) {
+                if (((x - 16) * (x - 16) + (y - 17) * (y - 17)) < 64) {
+                    int idx = (y * WIDTH + x) * 4;
+                    Uint32 color = ((x + y) % 4 == 0) ? ROCK_DARK : ROCK_GRAY;
+                    pixels[idx + 0] = (color >> 16) & 0xFF;
+                    pixels[idx + 1] = (color >> 8) & 0xFF;
+                    pixels[idx + 2] = color & 0xFF;
+                    pixels[idx + 3] = 0xFF;
+                }
+            }
+        }
+        rockMediumTexture = createTextureFromPixels(pixels, WIDTH, HEIGHT);
+    }
+    
+    // Large Boulder
+    {
+        Uint8 pixels[WIDTH * HEIGHT * 4];
+        memset(pixels, 0, sizeof(pixels));
+        const Uint32 ROCK_GRAY = 0xFF8B7355;
+        const Uint32 ROCK_DARK = 0xFF6B5344;
+        
+        for (int y = 4; y < 28; y++) {
+            for (int x = 4; x < 28; x++) {
+                if (((x - 16) * (x - 16) + (y - 16) * (y - 16)) < 90) {
+                    int idx = (y * WIDTH + x) * 4;
+                    Uint32 color = ((x + y) % 5 == 0) ? ROCK_DARK : ROCK_GRAY;
+                    pixels[idx + 0] = (color >> 16) & 0xFF;
+                    pixels[idx + 1] = (color >> 8) & 0xFF;
+                    pixels[idx + 2] = color & 0xFF;
+                    pixels[idx + 3] = 0xFF;
+                }
+            }
+        }
+        rockLargeTexture = createTextureFromPixels(pixels, WIDTH, HEIGHT);
+    }
+    
+    // Rock Formation (small mesa/cliff piece)
+    {
+        Uint8 pixels[WIDTH * HEIGHT * 4];
+        memset(pixels, 0, sizeof(pixels));
+        const Uint32 ROCK_GRAY = 0xFF8B7355;
+        const Uint32 ROCK_DARK = 0xFF6B5344;
+        const Uint32 ROCK_TOP = 0xFFA08565;
+        
+        // Base
+        for (int y = 16; y < 30; y++) {
+            for (int x = 4; x < 28; x++) {
+                int idx = (y * WIDTH + x) * 4;
+                Uint32 color = (y > 24) ? ROCK_DARK : ROCK_GRAY;
+                pixels[idx + 0] = (color >> 16) & 0xFF;
+                pixels[idx + 1] = (color >> 8) & 0xFF;
+                pixels[idx + 2] = color & 0xFF;
+                pixels[idx + 3] = 0xFF;
+            }
+        }
+        // Top layer
+        for (int y = 8; y < 18; y++) {
+            for (int x = 8; x < 24; x++) {
+                int idx = (y * WIDTH + x) * 4;
+                pixels[idx + 0] = (ROCK_TOP >> 16) & 0xFF;
+                pixels[idx + 1] = (ROCK_TOP >> 8) & 0xFF;
+                pixels[idx + 2] = ROCK_TOP & 0xFF;
+                pixels[idx + 3] = 0xFF;
+            }
+        }
+        rockFormationTexture = createTextureFromPixels(pixels, WIDTH, HEIGHT);
+    }
+}
+
+/**
+ * Get adobe wall texture
+ */
+SDL_Texture* ProceduralArt::getAdobeWallTexture() {
+    if (adobeWallTexture != nullptr) return adobeWallTexture;
+    createDesertStructureTextures();
+    return adobeWallTexture;
+}
+
+/**
+ * Get adobe ruin texture
+ */
+SDL_Texture* ProceduralArt::getAdobeRuinTexture() {
+    if (adobeRuinTexture != nullptr) return adobeRuinTexture;
+    createDesertStructureTextures();
+    return adobeRuinTexture;
+}
+
+/**
+ * Get desert well texture
+ */
+SDL_Texture* ProceduralArt::getDesertWellTexture() {
+    if (desertWellTexture != nullptr) return desertWellTexture;
+    createDesertStructureTextures();
+    return desertWellTexture;
+}
+
+/**
+ * Get cave entrance texture
+ */
+SDL_Texture* ProceduralArt::getCaveEntranceTexture() {
+    if (caveEntranceTexture != nullptr) return caveEntranceTexture;
+    createDesertStructureTextures();
+    return caveEntranceTexture;
+}
+
+/**
+ * Get campfire site texture
+ */
+SDL_Texture* ProceduralArt::getCampfireSiteTexture() {
+    if (campfireSiteTexture != nullptr) return campfireSiteTexture;
+    createDesertStructureTextures();
+    return campfireSiteTexture;
+}
+
+/**
+ * Create all desert structure textures
+ */
+void ProceduralArt::createDesertStructureTextures() {
+    const int WIDTH = 32;
+    const int HEIGHT = 32;
+    
+    // Adobe Wall
+    {
+        Uint8 pixels[WIDTH * HEIGHT * 4];
+        memset(pixels, 0, sizeof(pixels));
+        const Uint32 ADOBE_COLOR = 0xFFCD853F;
+        const Uint32 ADOBE_DARK = 0xFFB87333;
+        
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
+                int idx = (y * WIDTH + x) * 4;
+                // Brick pattern
+                int brickY = y / 8;
+                int brickX = (x + (brickY % 2) * 4) / 8;
+                Uint32 color = ((brickX + brickY) % 2 == 0) ? ADOBE_COLOR : ADOBE_DARK;
+                pixels[idx + 0] = (color >> 16) & 0xFF;
+                pixels[idx + 1] = (color >> 8) & 0xFF;
+                pixels[idx + 2] = color & 0xFF;
+                pixels[idx + 3] = 0xFF;
+            }
+        }
+        adobeWallTexture = createTextureFromPixels(pixels, WIDTH, HEIGHT);
+    }
+    
+    // Adobe Ruin (crumbled)
+    {
+        Uint8 pixels[WIDTH * HEIGHT * 4];
+        memset(pixels, 0, sizeof(pixels));
+        const Uint32 ADOBE_COLOR = 0xFFCD853F;
+        const Uint32 ADOBE_DARK = 0xFFB87333;
+        
+        for (int y = 8; y < 28; y++) {
+            for (int x = 4; x < 28; x++) {
+                if (((x - 16) * (x - 16) + (y - 18) * (y - 18)) < 100 && ((x + y) % 5 != 0)) {
+                    int idx = (y * WIDTH + x) * 4;
+                    Uint32 color = ((x + y) % 3 == 0) ? ADOBE_DARK : ADOBE_COLOR;
+                    pixels[idx + 0] = (color >> 16) & 0xFF;
+                    pixels[idx + 1] = (color >> 8) & 0xFF;
+                    pixels[idx + 2] = color & 0xFF;
+                    pixels[idx + 3] = 0xFF;
+                }
+            }
+        }
+        adobeRuinTexture = createTextureFromPixels(pixels, WIDTH, HEIGHT);
+    }
+    
+    // Desert Well
+    {
+        Uint8 pixels[WIDTH * HEIGHT * 4];
+        memset(pixels, 0, sizeof(pixels));
+        const Uint32 STONE_GRAY = 0xFF8B7355;
+        const Uint32 STONE_DARK = 0xFF6B5344;
+        const Uint32 WATER_BLUE = 0xFF4A90A4;
+        
+        // Well base
+        for (int y = 16; y < 28; y++) {
+            for (int x = 8; x < 24; x++) {
+                int idx = (y * WIDTH + x) * 4;
+                Uint32 color = ((x + y) % 3 == 0) ? STONE_DARK : STONE_GRAY;
+                pixels[idx + 0] = (color >> 16) & 0xFF;
+                pixels[idx + 1] = (color >> 8) & 0xFF;
+                pixels[idx + 2] = color & 0xFF;
+                pixels[idx + 3] = 0xFF;
+            }
+        }
+        // Water inside
+        for (int y = 20; y < 26; y++) {
+            for (int x = 12; x < 20; x++) {
+                int idx = (y * WIDTH + x) * 4;
+                pixels[idx + 0] = (WATER_BLUE >> 16) & 0xFF;
+                pixels[idx + 1] = (WATER_BLUE >> 8) & 0xFF;
+                pixels[idx + 2] = WATER_BLUE & 0xFF;
+                pixels[idx + 3] = 0xFF;
+            }
+        }
+        desertWellTexture = createTextureFromPixels(pixels, WIDTH, HEIGHT);
+    }
+    
+    // Cave Entrance
+    {
+        Uint8 pixels[WIDTH * HEIGHT * 4];
+        memset(pixels, 0, sizeof(pixels));
+        const Uint32 ROCK_GRAY = 0xFF8B7355;
+        const Uint32 SHADOW = 0xFF2C1810;
+        
+        // Rock frame
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
+                int idx = (y * WIDTH + x) * 4;
+                float dist = sqrtf((x - 16) * (x - 16) + (y - 16) * (y - 16));
+                if (dist > 12) {
+                    pixels[idx + 0] = (ROCK_GRAY >> 16) & 0xFF;
+                    pixels[idx + 1] = (ROCK_GRAY >> 8) & 0xFF;
+                    pixels[idx + 2] = ROCK_GRAY & 0xFF;
+                    pixels[idx + 3] = 0xFF;
+                } else if (dist > 6) {
+                    pixels[idx + 0] = (SHADOW >> 16) & 0xFF;
+                    pixels[idx + 1] = (SHADOW >> 8) & 0xFF;
+                    pixels[idx + 2] = SHADOW & 0xFF;
+                    pixels[idx + 3] = 0xFF;
+                }
+            }
+        }
+        caveEntranceTexture = createTextureFromPixels(pixels, WIDTH, HEIGHT);
+    }
+    
+    // Campfire Site
+    {
+        Uint8 pixels[WIDTH * HEIGHT * 4];
+        memset(pixels, 0, sizeof(pixels));
+        const Uint32 STONE_GRAY = 0xFF8B7355;
+        const Uint32 FIRE_ORANGE = 0xFFFF8C00;
+        const Uint32 ASH_GRAY = 0xFF808080;
+        
+        // Stone ring
+        for (int i = 0; i < 8; i++) {
+            float angle = (i * 45) * 3.14159 / 180;
+            int x = 16 + (int)(10 * cos(angle));
+            int y = 16 + (int)(10 * sin(angle));
+            for (int dy = -2; dy <= 2; dy++) {
+                for (int dx = -2; dx <= 2; dx++) {
+                    int px = x + dx;
+                    int py = y + dy;
+                    if (px >= 0 && px < WIDTH && py >= 0 && py < HEIGHT) {
+                        int idx = (py * WIDTH + px) * 4;
+                        pixels[idx + 0] = (STONE_GRAY >> 16) & 0xFF;
+                        pixels[idx + 1] = (STONE_GRAY >> 8) & 0xFF;
+                        pixels[idx + 2] = STONE_GRAY & 0xFF;
+                        pixels[idx + 3] = 0xFF;
+                    }
+                }
+            }
+        }
+        // Fire/ashes in center
+        for (int y = 12; y < 20; y++) {
+            for (int x = 12; x < 20; x++) {
+                if (((x - 16) * (x - 16) + (y - 16) * (y - 16)) < 16) {
+                    int idx = (y * WIDTH + x) * 4;
+                    Uint32 color = ((x + y) % 4 == 0) ? FIRE_ORANGE : ASH_GRAY;
+                    pixels[idx + 0] = (color >> 16) & 0xFF;
+                    pixels[idx + 1] = (color >> 8) & 0xFF;
+                    pixels[idx + 2] = color & 0xFF;
+                    pixels[idx + 3] = 0xFF;
+                }
+            }
+        }
+        campfireSiteTexture = createTextureFromPixels(pixels, WIDTH, HEIGHT);
+    }
+}
+
+/**
+ * Get bones texture
+ */
+SDL_Texture* ProceduralArt::getBonesTexture() {
+    if (bonesTexture != nullptr) return bonesTexture;
+    createDesertDetailTextures();
+    return bonesTexture;
+}
+
+/**
+ * Get tumbleweed texture
+ */
+SDL_Texture* ProceduralArt::getTumbleweedTexture() {
+    if (tumbleweedTexture != nullptr) return tumbleweedTexture;
+    createDesertDetailTextures();
+    return tumbleweedTexture;
+}
+
+/**
+ * Get dead tree texture
+ */
+SDL_Texture* ProceduralArt::getDeadTreeTexture() {
+    if (deadTreeTexture != nullptr) return deadTreeTexture;
+    createDesertDetailTextures();
+    return deadTreeTexture;
+}
+
+/**
+ * Get scorpion texture
+ */
+SDL_Texture* ProceduralArt::getScorpionTexture() {
+    if (scorpionTexture != nullptr) return scorpionTexture;
+    createDesertDetailTextures();
+    return scorpionTexture;
+}
+
+/**
+ * Get snake texture
+ */
+SDL_Texture* ProceduralArt::getSnakeTexture() {
+    if (snakeTexture != nullptr) return snakeTexture;
+    createDesertDetailTextures();
+    return snakeTexture;
+}
+
+/**
+ * Create all desert detail textures
+ */
+void ProceduralArt::createDesertDetailTextures() {
+    const int WIDTH = 32;
+    const int HEIGHT = 32;
+    
+    // Animal Bones
+    {
+        Uint8 pixels[WIDTH * HEIGHT * 4];
+        memset(pixels, 0, sizeof(pixels));
+        const Uint32 BONE_WHITE = 0xFFF5F5DC;
+        const Uint32 BONE_SHADOW = 0xFFD4C4A8;
+        
+        // Rib cage
+        for (int i = 0; i < 5; i++) {
+            int y = 12 + i * 3;
+            for (int x = 8; x < 24; x++) {
+                if (((x - 16) % 4) == 0) {
+                    int idx = (y * WIDTH + x) * 4;
+                    Uint32 color = ((x + y) % 2 == 0) ? BONE_WHITE : BONE_SHADOW;
+                    pixels[idx + 0] = (color >> 16) & 0xFF;
+                    pixels[idx + 1] = (color >> 8) & 0xFF;
+                    pixels[idx + 2] = color & 0xFF;
+                    pixels[idx + 3] = 0xFF;
+                }
+            }
+        }
+        bonesTexture = createTextureFromPixels(pixels, WIDTH, HEIGHT);
+    }
+    
+    // Tumbleweed
+    {
+        Uint8 pixels[WIDTH * HEIGHT * 4];
+        memset(pixels, 0, sizeof(pixels));
+        const Uint32 TUMBLEWEED_COLOR = 0xFFA09070;
+        const Uint32 TUMBLEWEED_DARK = 0xFF706050;
+        
+        // Tangled branches
+        for (int y = 8; y < 24; y++) {
+            for (int x = 8; x < 24; x++) {
+                if (((x * y) % 5) < 3 && ((x + y) % 3 != 0)) {
+                    int idx = (y * WIDTH + x) * 4;
+                    Uint32 color = ((x + y) % 4 == 0) ? TUMBLEWEED_DARK : TUMBLEWEED_COLOR;
+                    pixels[idx + 0] = (color >> 16) & 0xFF;
+                    pixels[idx + 1] = (color >> 8) & 0xFF;
+                    pixels[idx + 2] = color & 0xFF;
+                    pixels[idx + 3] = 0xFF;
+                }
+            }
+        }
+        tumbleweedTexture = createTextureFromPixels(pixels, WIDTH, HEIGHT);
+    }
+    
+    // Dead Tree (driftwood)
+    {
+        Uint8 pixels[WIDTH * HEIGHT * 4];
+        memset(pixels, 0, sizeof(pixels));
+        const Uint32 WOOD_GRAY = 0xFFA09070;
+        const Uint32 WOOD_DARK = 0xFF706050;
+        
+        // Main trunk
+        for (int y = 8; y < 26; y++) {
+            for (int x = 14; x < 18; x++) {
+                int idx = (y * WIDTH + x) * 4;
+                Uint32 color = ((y % 3) == 0) ? WOOD_DARK : WOOD_GRAY;
+                pixels[idx + 0] = (color >> 16) & 0xFF;
+                pixels[idx + 1] = (color >> 8) & 0xFF;
+                pixels[idx + 2] = color & 0xFF;
+                pixels[idx + 3] = 0xFF;
+            }
+        }
+        // Branches
+        for (int y = 12; y < 18; y++) {
+            for (int x = 10; x < 14; x++) {
+                int idx = (y * WIDTH + x) * 4;
+                pixels[idx + 0] = (WOOD_GRAY >> 16) & 0xFF;
+                pixels[idx + 1] = (WOOD_GRAY >> 8) & 0xFF;
+                pixels[idx + 2] = WOOD_GRAY & 0xFF;
+                pixels[idx + 3] = 0xFF;
+            }
+        }
+        for (int y = 14; y < 20; y++) {
+            for (int x = 18; x < 24; x++) {
+                int idx = (y * WIDTH + x) * 4;
+                pixels[idx + 0] = (WOOD_GRAY >> 16) & 0xFF;
+                pixels[idx + 1] = (WOOD_GRAY >> 8) & 0xFF;
+                pixels[idx + 2] = WOOD_GRAY & 0xFF;
+                pixels[idx + 3] = 0xFF;
+            }
+        }
+        deadTreeTexture = createTextureFromPixels(pixels, WIDTH, HEIGHT);
+    }
+    
+    // Scorpion
+    {
+        Uint8 pixels[WIDTH * HEIGHT * 4];
+        memset(pixels, 0, sizeof(pixels));
+        const Uint32 SCORPION_COLOR = 0xFF4A4A4A;
+        const Uint32 SCORPION_DARK = 0xFF2A2A2A;
+        
+        // Body
+        for (int y = 14; y < 20; y++) {
+            for (int x = 12; x < 20; x++) {
+                int idx = (y * WIDTH + x) * 4;
+                pixels[idx + 0] = (SCORPION_COLOR >> 16) & 0xFF;
+                pixels[idx + 1] = (SCORPION_COLOR >> 8) & 0xFF;
+                pixels[idx + 2] = SCORPION_COLOR & 0xFF;
+                pixels[idx + 3] = 0xFF;
+            }
+        }
+        // Tail
+        for (int i = 0; i < 8; i++) {
+            int x = 20 + i / 2;
+            int y = 16 - i / 3;
+            if (x < WIDTH && y >= 0) {
+                int idx = (y * WIDTH + x) * 4;
+                pixels[idx + 0] = (SCORPION_DARK >> 16) & 0xFF;
+                pixels[idx + 1] = (SCORPION_DARK >> 8) & 0xFF;
+                pixels[idx + 2] = SCORPION_DARK & 0xFF;
+                pixels[idx + 3] = 0xFF;
+            }
+        }
+        scorpionTexture = createTextureFromPixels(pixels, WIDTH, HEIGHT);
+    }
+    
+    // Snake
+    {
+        Uint8 pixels[WIDTH * HEIGHT * 4];
+        memset(pixels, 0, sizeof(pixels));
+        const Uint32 SNAKE_GREEN = 0xFF6B8E23;
+        const Uint32 SNAKE_PATTERN = 0xFF8B7355;
+        
+        // Wavy body
+        for (int i = 0; i < 20; i++) {
+            int x = 6 + i;
+            int y = 16 + (int)(3 * sin(i * 0.5));
+            for (int dy = -1; dy <= 1; dy++) {
+                for (int dx = -1; dx <= 1; dx++) {
+                    int px = x + dx;
+                    int py = y + dy;
+                    if (px >= 0 && px < WIDTH && py >= 0 && py < HEIGHT) {
+                        int idx = (py * WIDTH + px) * 4;
+                        Uint32 color = ((i % 4) == 0) ? SNAKE_PATTERN : SNAKE_GREEN;
+                        pixels[idx + 0] = (color >> 16) & 0xFF;
+                        pixels[idx + 1] = (color >> 8) & 0xFF;
+                        pixels[idx + 2] = color & 0xFF;
+                        pixels[idx + 3] = 0xFF;
+                    }
+                }
+            }
+        }
+        snakeTexture = createTextureFromPixels(pixels, WIDTH, HEIGHT);
+    }
+}
+
 /**
  * Cleanup all generated textures
  */
@@ -1507,6 +2642,124 @@ void ProceduralArt::cleanup() {
     if (fenceTexture != nullptr) {
         SDL_DestroyTexture(fenceTexture);
         fenceTexture = nullptr;
+    }
+    
+    // Clean up desert textures
+    if (sandTexture != nullptr) {
+        SDL_DestroyTexture(sandTexture);
+        sandTexture = nullptr;
+    }
+    if (sandDarkTexture != nullptr) {
+        SDL_DestroyTexture(sandDarkTexture);
+        sandDarkTexture = nullptr;
+    }
+    if (sandRockyTexture != nullptr) {
+        SDL_DestroyTexture(sandRockyTexture);
+        sandRockyTexture = nullptr;
+    }
+    if (crackedEarthTexture != nullptr) {
+        SDL_DestroyTexture(crackedEarthTexture);
+        crackedEarthTexture = nullptr;
+    }
+    if (rockyGroundTexture != nullptr) {
+        SDL_DestroyTexture(rockyGroundTexture);
+        rockyGroundTexture = nullptr;
+    }
+    if (cactusSaguaroTexture != nullptr) {
+        SDL_DestroyTexture(cactusSaguaroTexture);
+        cactusSaguaroTexture = nullptr;
+    }
+    if (cactusSaguaro2ArmsTexture != nullptr) {
+        SDL_DestroyTexture(cactusSaguaro2ArmsTexture);
+        cactusSaguaro2ArmsTexture = nullptr;
+    }
+    if (cactusSaguaro3ArmsTexture != nullptr) {
+        SDL_DestroyTexture(cactusSaguaro3ArmsTexture);
+        cactusSaguaro3ArmsTexture = nullptr;
+    }
+    if (cactusPricklyPearTexture != nullptr) {
+        SDL_DestroyTexture(cactusPricklyPearTexture);
+        cactusPricklyPearTexture = nullptr;
+    }
+    if (cactusChollaTexture != nullptr) {
+        SDL_DestroyTexture(cactusChollaTexture);
+        cactusChollaTexture = nullptr;
+    }
+    if (desertBushTexture != nullptr) {
+        SDL_DestroyTexture(desertBushTexture);
+        desertBushTexture = nullptr;
+    }
+    if (desertGrassTexture != nullptr) {
+        SDL_DestroyTexture(desertGrassTexture);
+        desertGrassTexture = nullptr;
+    }
+    if (paloVerdeTexture != nullptr) {
+        SDL_DestroyTexture(paloVerdeTexture);
+        paloVerdeTexture = nullptr;
+    }
+    if (yuccaTexture != nullptr) {
+        SDL_DestroyTexture(yuccaTexture);
+        yuccaTexture = nullptr;
+    }
+    if (agaveTexture != nullptr) {
+        SDL_DestroyTexture(agaveTexture);
+        agaveTexture = nullptr;
+    }
+    if (rockSmallTexture != nullptr) {
+        SDL_DestroyTexture(rockSmallTexture);
+        rockSmallTexture = nullptr;
+    }
+    if (rockMediumTexture != nullptr) {
+        SDL_DestroyTexture(rockMediumTexture);
+        rockMediumTexture = nullptr;
+    }
+    if (rockLargeTexture != nullptr) {
+        SDL_DestroyTexture(rockLargeTexture);
+        rockLargeTexture = nullptr;
+    }
+    if (rockFormationTexture != nullptr) {
+        SDL_DestroyTexture(rockFormationTexture);
+        rockFormationTexture = nullptr;
+    }
+    if (adobeWallTexture != nullptr) {
+        SDL_DestroyTexture(adobeWallTexture);
+        adobeWallTexture = nullptr;
+    }
+    if (adobeRuinTexture != nullptr) {
+        SDL_DestroyTexture(adobeRuinTexture);
+        adobeRuinTexture = nullptr;
+    }
+    if (desertWellTexture != nullptr) {
+        SDL_DestroyTexture(desertWellTexture);
+        desertWellTexture = nullptr;
+    }
+    if (caveEntranceTexture != nullptr) {
+        SDL_DestroyTexture(caveEntranceTexture);
+        caveEntranceTexture = nullptr;
+    }
+    if (campfireSiteTexture != nullptr) {
+        SDL_DestroyTexture(campfireSiteTexture);
+        campfireSiteTexture = nullptr;
+    }
+    if (bonesTexture != nullptr) {
+        SDL_DestroyTexture(bonesTexture);
+        bonesTexture = nullptr;
+    }
+    if (tumbleweedTexture != nullptr) {
+        SDL_DestroyTexture(tumbleweedTexture);
+        tumbleweedTexture = nullptr;
+    }
+    if (deadTreeTexture != nullptr) {
+        SDL_DestroyTexture(deadTreeTexture);
+        deadTreeTexture = nullptr;
+    }
+    if (scorpionTexture != nullptr) {
+        SDL_DestroyTexture(scorpionTexture);
+        scorpionTexture = nullptr;
+    }
+    if (snakeTexture != nullptr) {
+        SDL_DestroyTexture(snakeTexture);
+        snakeTexture = nullptr;
     }
     
     for(int f = 0; f < MAX_ANIM_FRAMES; f++) {

@@ -27,6 +27,8 @@ void TileMap::setMapLayout(const char* layoutName) {
         loadIndoorHouseLayout();
     } else if (strcmp(layoutName, "outdoor") == 0) {
         loadOutdoorWorldLayout();
+    } else if (strcmp(layoutName, "desert") == 0) {
+        loadDesertWorldLayout();
     }
 }
 
@@ -98,6 +100,135 @@ void TileMap::loadOutdoorWorldLayout() {
     // Positioned at top center
     int houseLeftX = currentWidthTiles / 2 - 4;  // Center horizontally (around x=76)
     int houseTopY = 0;
+
+/**
+ * Load desert biome world layout
+ */
+void TileMap::loadDesertWorldLayout() {
+    // Set dimensions for large outdoor desert world
+    currentWidthTiles = OUTDOOR_WIDTH_TILES;   // 160 tiles
+    currentHeightTiles = OUTDOOR_HEIGHT_TILES; // 80 tiles
+    
+    // Clear all tiles and fill with sand ground
+    for (int y = 0; y < currentHeightTiles; y++) {
+        for (int x = 0; x < currentWidthTiles; x++) {
+            // Create varied sand terrain
+            int noise = ((x * 17 + y * 31) % 10);
+            if (noise < 5) {
+                tiles[y][x] = TileType::SAND;
+            } else if (noise < 7) {
+                tiles[y][x] = TileType::SAND_DARK;
+            } else if (noise < 8) {
+                tiles[y][x] = TileType::CRACKED_EARTH;
+            } else if (noise < 9) {
+                tiles[y][x] = TileType::SAND_ROCKY;
+            } else {
+                tiles[y][x] = TileType::ROCKY_GROUND;
+            }
+        }
+    }
+    
+    // Add scattered cacti throughout the desert
+    // Saguaro cacti (tall, iconic desert cactus)
+    for (int i = 0; i < 15; i++) {
+        int cx = (i * 37 + 13) % (currentWidthTiles - 4) + 2;
+        int cy = (i * 43 + 7) % (currentHeightTiles - 4) + 2;
+        
+        // Randomly choose cactus type
+        int cactusType = (i * 7) % 5;
+        switch (cactusType) {
+            case 0: tiles[cy][cx] = TileType::CACTUS_SAGUARO; break;
+            case 1: tiles[cy][cx] = TileType::CACTUS_SAGUARO_2ARMS; break;
+            case 2: tiles[cy][cx] = TileType::CACTUS_SAGUARO_3ARMS; break;
+            case 3: tiles[cy][cx] = TileType::CACTUS_PRICKLY_PEAR; break;
+            case 4: tiles[cy][cx] = TileType::CACTUS_CHOLLA; break;
+        }
+    }
+    
+    // Add desert bushes and vegetation
+    for (int i = 0; i < 40; i++) {
+        int vx = (i * 23 + 11) % (currentWidthTiles - 2) + 1;
+        int vy = (i * 31 + 19) % (currentHeightTiles - 2) + 1;
+        
+        // Don't overwrite cacti
+        if (tiles[vy][vx] >= TileType::CACTUS_SAGUARO && tiles[vy][vx] <= TileType::CACTUS_CHOLLA) {
+            continue;
+        }
+        
+        int vegType = (i * 11) % 5;
+        switch (vegType) {
+            case 0: tiles[vy][vx] = TileType::DESERT_BUSH; break;
+            case 1: tiles[vy][vx] = TileType::DESERT_GRASS; break;
+            case 2: tiles[vy][vx] = TileType::PALO_VERDE; break;
+            case 3: tiles[vy][vx] = TileType::YUCCA; break;
+            case 4: tiles[vy][vx] = TileType::AGAVE; break;
+        }
+    }
+    
+    // Add rocks and boulders
+    for (int i = 0; i < 25; i++) {
+        int rx = (i * 29 + 17) % (currentWidthTiles - 2) + 1;
+        int ry = (i * 37 + 23) % (currentHeightTiles - 2) + 1;
+        
+        // Don't overwrite cacti or vegetation
+        if (tiles[ry][rx] >= TileType::CACTUS_SAGUARO && tiles[ry][rx] <= TileType::AGAVE) {
+            continue;
+        }
+        
+        int rockType = (i * 13) % 4;
+        switch (rockType) {
+            case 0: tiles[ry][rx] = TileType::ROCK_SMALL; break;
+            case 1: tiles[ry][rx] = TileType::ROCK_MEDIUM; break;
+            case 2: tiles[ry][rx] = TileType::ROCK_LARGE; break;
+            case 3: tiles[ry][rx] = TileType::ROCK_FORMATION; break;
+        }
+    }
+    
+    // Add desert structures
+    // Adobe ruins in the center-left area
+    int ruinX = 30;
+    int ruinY = 35;
+    tiles[ruinY][ruinX] = TileType::ADOBE_RUIN;
+    tiles[ruinY][ruinX + 1] = TileType::ADOBE_WALL;
+    tiles[ruinY][ruinX + 2] = TileType::ADOBE_WALL;
+    tiles[ruinY + 1][ruinX] = TileType::ADOBE_WALL;
+    tiles[ruinY + 1][ruinX + 1] = TileType::ADOBE_WALL;
+    
+    // Desert well near center
+    int wellX = 78;
+    int wellY = 40;
+    tiles[wellY][wellX] = TileType::DESERT_WELL;
+    
+    // Cave entrance in the upper right
+    int caveX = 120;
+    int caveY = 15;
+    tiles[caveY][caveX] = TileType::CAVE_ENTRANCE;
+    
+    // Campfire site in the lower area
+    int fireX = 50;
+    int fireY = 65;
+    tiles[fireY][fireX] = TileType::CAMPFIRE_SITE;
+    
+    // Add decorative details (bones, tumbleweeds, dead trees)
+    for (int i = 0; i < 20; i++) {
+        int dx = (i * 31 + 23) % (currentWidthTiles - 2) + 1;
+        int dy = (i * 41 + 31) % (currentHeightTiles - 2) + 1;
+        
+        // Don't overwrite important features
+        if (tiles[dy][dx] >= TileType::CACTUS_SAGUARO && tiles[dy][dx] <= TileType::CAMPFIRE_SITE) {
+            continue;
+        }
+        
+        int detailType = (i * 17) % 5;
+        switch (detailType) {
+            case 0: tiles[dy][dx] = TileType::BONES; break;
+            case 1: tiles[dy][dx] = TileType::TUMBLEWEED; break;
+            case 2: tiles[dy][dx] = TileType::DEAD_TREE; break;
+            case 3: tiles[dy][dx] = TileType::SCORPION; break;
+            case 4: tiles[dy][dx] = TileType::SNAKE; break;
+        }
+    }
+}
     int houseRightX = houseLeftX + 8;
     int houseBottomY = houseTopY + 4;
     
