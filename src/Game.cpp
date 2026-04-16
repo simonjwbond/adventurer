@@ -3,6 +3,7 @@
 #include "Camera.h"
 #include "graphics/ProceduralArt.h"
 #include "world/TileMap.h"
+#include "world/WorldManager.h"
 #include <cstdio>
 #include <cstring>
 
@@ -23,7 +24,7 @@ Game::Game()
     , inputManager(nullptr)
     , camera(nullptr)
     , proceduralArt(nullptr)
-    , tileMap(nullptr)
+    , worldManager(nullptr)
     , settings(nullptr)
     , playerPosition(SCREEN_WIDTH / 2.0f, SCREEN_HEIGHT / 2.0f)  // Start in center of screen
     , playerFacing(FACING_DOWN)  // Default facing direction
@@ -89,21 +90,17 @@ bool Game::initialize() {
     inputManager = new InputManager();
     camera = new Camera();
     proceduralArt = new ProceduralArt(renderer);
-    tileMap = new TileMap(renderer, proceduralArt);
+    worldManager = new WorldManager(renderer, proceduralArt);
     settings = new Settings();
     settings->loadFromFile(Settings::getDefaultPath());
+    
+    // Initialize the world manager with all areas
+    worldManager->initialize();
     
     // Start in fixed camera mode for indoor testing
     camera->setFixed(true);
     
-    // Initialize the tile map with indoor house layout
-    tileMap->loadIndoorHouseLayout();
-    
-    // Generate static background texture for optimized rendering
-    // Reduces draw calls from 112 per frame to 1 per frame
-    tileMap->generateStaticBackground(renderer);
-    
-    // Start player in center of room for testing
+    // Get initial position from world manager
     playerPosition.x = SCREEN_WIDTH / 2.0f;
     playerPosition.y = SCREEN_HEIGHT / 2.0f;
     
@@ -113,7 +110,7 @@ bool Game::initialize() {
     DEBUG_LOG("InputManager created");
     DEBUG_LOG("Camera created (fixed, no panning)");
     DEBUG_LOG("ProceduralArt created");
-    DEBUG_LOG("TileMap initialized with room layout");
+    DEBUG_LOG("WorldManager initialized with multiple areas");
     DEBUG_LOG("Player starting position: (%.1f, %.1f)", playerPosition.x, playerPosition.y);
     DEBUG_LOG("Game initialized successfully");
     return true;
@@ -124,10 +121,10 @@ bool Game::initialize() {
  */
 void Game::cleanup() {
     // Delete subsystems
-    if (tileMap != nullptr) {
-        delete tileMap;
-        tileMap = nullptr;
-        DEBUG_LOG("TileMap destroyed");
+    if (worldManager != nullptr) {
+        delete worldManager;
+        worldManager = nullptr;
+        DEBUG_LOG("WorldManager destroyed");
     }
     
     if (proceduralArt != nullptr) {
@@ -231,6 +228,8 @@ void Game::update(float deltaTime) {
     // Player speed is now configurable via game_settings.json
     float moveSpeed = settings ? settings->playerSpeed : PLAYER_SPEED;
     
+    TileMap* tileMap = (worldManager != nullptr) ? worldManager->getCurrentTileMap() : nullptr;
+    
     if (tileMap != nullptr) {
         // Check collision at new positions BEFORE applying movement
         float newX = playerPosition.x + horizontalInput * moveSpeed;
@@ -269,74 +268,19 @@ void Game::update(float deltaTime) {
 }
 
 /**
- * Check if player is passing through a door to transition between worlds
+ * Check if player has crossed a world boundary and needs to transition
  */
 void Game::checkWorldTransition() {
-    if (worldTransitionPending) return;
-    if (tileMap == nullptr) return;
+    if (worldManager == nullptr) return;
     
-    // Check if player is colliding with a door tile
-    int gridX = static_cast<int>(playerPosition.x / 48.0f);
-    int gridY = static_cast<int>(playerPosition.y / 48.0f);
+    // Check for boundary transitions (ALttP style - walk off edge of map)
+    bool transitioned = worldManager->checkBoundaryTransition(playerPosition.x, playerPosition.y);
     
-    if (tileMap->isDoorTile(gridX, gridY)) {
-        // Determine which world to transition to based on current world
-        WorldType targetWorld;
-        float exitX, exitY;
-        
-        if (currentWorld == WorldType::INDOOR_HOUSE) {
-            // Going outside - position player just south of the door
-            // House is at y=0 to y=4, door is at y=4, so position at y=5-6
-            targetWorld = WorldType::OUTDOOR_WORLD;
-            exitX = playerPosition.x;  // Keep same horizontal position
-            exitY = 240.0f;  // Just below the house (5 tiles * 48 = 240)
-        } else {
-            // Going inside - exit at top of door into the house interior
-            targetWorld = WorldType::INDOOR_HOUSE;
-            exitX = playerPosition.x;
-            exitY = playerPosition.y - 40.0f;  // Move north into house
-        }
-        
-        // Trigger world switch
-        switchWorld(targetWorld);
-        playerPosition.x = exitX;
-        playerPosition.y = exitY;
-        
-        DEBUG_LOG("World transition: %s -> %s, Player pos: (%.1f, %.1f)",
-                  currentWorld == WorldType::INDOOR_HOUSE ? "INDOOR" : "OUTDOOR",
-                  targetWorld == WorldType::INDOOR_HOUSE ? "INDOOR" : "OUTDOOR",
-                  exitX, exitY);
+    if (transitioned) {
+        DEBUG_LOG("World boundary transition completed");
     }
 }
 
-/**
- * Switch to a different world/room
- */
-void Game::switchWorld(WorldType newWorld) {
-    currentWorld = newWorld;
-    worldTransitionPending = true;
-    
-    // Reload tile map with new layout
-    if (tileMap != nullptr) {
-        if (newWorld == WorldType::INDOOR_HOUSE) {
-            tileMap->loadIndoorHouseLayout();
-            camera->setFixed(true);  // Fixed camera for indoor rooms
-        } else {
-            tileMap->loadOutdoorWorldLayout();
-            camera->setFixed(false); // Enable panning for outdoor world
-        }
-        
-        // Regenerate static background for new map
-        tileMap->generateStaticBackground(renderer);
-    }
-    
-    // Brief cooldown to prevent rapid re-entry
-    SDL_Delay(200);
-    worldTransitionPending = false;
-}
-
-/**
- * Render frame - Clear screen with background color for now
 /**
  * Render frame - Draw room with walls and floor
  */
@@ -352,9 +296,9 @@ void Game::render() {
                            255);
     SDL_RenderClear(renderer);
     
-    // Draw the tile map
-    if (tileMap != nullptr) {
-        tileMap->render(renderer, static_cast<int>(cameraOffset.x), static_cast<int>(cameraOffset.y));
+    // Draw the tile map(s)
+    if (worldManager != nullptr) {
+        worldManager->render(renderer, static_cast<int>(cameraOffset.x), static_cast<int>(cameraOffset.y));
     }
     
     // Draw player sprite (Link-style, facing down)

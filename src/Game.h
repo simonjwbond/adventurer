@@ -11,6 +11,7 @@ class InputManager;
 class Camera;
 class ProceduralArt;
 class TileMap;
+class WorldManager;
 
 /**
  * Game - Main game class managing the game loop, window, and renderer
@@ -61,7 +62,7 @@ private:
     InputManager* inputManager;
     Camera* camera;
     ProceduralArt* proceduralArt;
-    TileMap* tileMap;
+    WorldManager* worldManager;  // Manages multiple world areas
     Settings* settings;
     
     // Player position for testing (will move to Player class in Phase 3)
@@ -84,14 +85,6 @@ private:
     Uint32 animationTimer = 0;  // Tracks time for frame cycling
     int currentAnimFrame = 0;   // Current animation frame (0-2)
     bool isMoving = false;      // Track if player is currently moving
-    
-    // World/Room tracking
-    enum class WorldType {
-        INDOOR_HOUSE,
-        OUTDOOR_WORLD
-    };
-    WorldType currentWorld = WorldType::INDOOR_HOUSE;
-    bool worldTransitionPending = false;  // Prevent rapid transition spam
     
     /**
      * Initialize SDL window and renderer
@@ -125,14 +118,9 @@ private:
     void logHeartbeat();
     
     /**
-     * Handle world transition through door
+     * Handle world boundary transitions
      */
     void checkWorldTransition();
-    
-    /**
-     * Switch to a different world/room
-     */
-    void switchWorld(WorldType newWorld);
 };
 
 #endif // GAME_H

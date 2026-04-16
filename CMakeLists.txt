@@ -39,6 +39,7 @@ set(SOURCES
     
     # World/Tiles
     world/TileMap.cpp
+    world/WorldManager.cpp
     
     # Utilities
     utils/Settings.cpp

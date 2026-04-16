@@ -100,6 +100,53 @@ void TileMap::loadOutdoorWorldLayout() {
     // Positioned at top center
     int houseLeftX = currentWidthTiles / 2 - 4;  // Center horizontally (around x=76)
     int houseTopY = 0;
+    int houseRightX = houseLeftX + 8;
+    int houseBottomY = houseTopY + 4;
+    
+    // Top wall
+    for (int x = houseLeftX; x <= houseRightX; x++) {
+        if (x >= 0 && x < currentWidthTiles) {
+            if (x == houseLeftX) tiles[houseTopY][x] = TileType::WALL_CORNER_TL;
+            else if (x == houseRightX) tiles[houseTopY][x] = TileType::WALL_CORNER_TR;
+            else tiles[houseTopY][x] = TileType::WALL_EDGE_H;
+        }
+    }
+    
+    // Bottom wall with door opening in the center
+    for (int x = houseLeftX; x <= houseRightX; x++) {
+        if (x >= 0 && x < currentWidthTiles) {
+            if (x == houseLeftX) {
+                tiles[houseBottomY][x] = TileType::WALL_CORNER_BL;
+            } else if (x == houseRightX) {
+                tiles[houseBottomY][x] = TileType::WALL_CORNER_BR;
+            } else if (x == houseLeftX + 3 || x == houseLeftX + 4 || x == houseLeftX + 5) {
+                // Door in the center (3 tiles wide)
+                tiles[houseBottomY][x] = TileType::DOOR;
+            } else {
+                tiles[houseBottomY][x] = TileType::WALL_EDGE_H;
+            }
+        }
+    }
+    
+    // Side walls
+    for (int y = houseTopY + 1; y < houseBottomY; y++) {
+        if (houseLeftX >= 0 && houseLeftX < currentWidthTiles) {
+            tiles[y][houseLeftX] = TileType::WALL_EDGE_V;
+        }
+        if (houseRightX >= 0 && houseRightX < currentWidthTiles) {
+            tiles[y][houseRightX] = TileType::WALL_EDGE_V;
+        }
+    }
+    
+    // House interior - ROOF tiles (visible when outside)
+    for (int y = houseTopY + 1; y < houseBottomY; y++) {
+        for (int x = houseLeftX + 1; x < houseRightX; x++) {
+            if (x >= 0 && x < currentWidthTiles) {
+                tiles[y][x] = TileType::ROOF;
+            }
+        }
+    }
+}
 
 /**
  * Load desert biome world layout
@@ -226,119 +273,6 @@ void TileMap::loadDesertWorldLayout() {
             case 2: tiles[dy][dx] = TileType::DEAD_TREE; break;
             case 3: tiles[dy][dx] = TileType::SCORPION; break;
             case 4: tiles[dy][dx] = TileType::SNAKE; break;
-        }
-    }
-}
-    int houseRightX = houseLeftX + 8;
-    int houseBottomY = houseTopY + 4;
-    
-    // Top wall
-    for (int x = houseLeftX; x <= houseRightX; x++) {
-        if (x >= 0 && x < currentWidthTiles) {
-            if (x == houseLeftX) tiles[houseTopY][x] = TileType::WALL_CORNER_TL;
-            else if (x == houseRightX) tiles[houseTopY][x] = TileType::WALL_CORNER_TR;
-            else tiles[houseTopY][x] = TileType::WALL_EDGE_H;
-        }
-    }
-    
-    // Bottom wall with door opening in the center
-    for (int x = houseLeftX; x <= houseRightX; x++) {
-        if (x >= 0 && x < currentWidthTiles) {
-            if (x == houseLeftX) {
-                tiles[houseBottomY][x] = TileType::WALL_CORNER_BL;
-            } else if (x == houseRightX) {
-                tiles[houseBottomY][x] = TileType::WALL_CORNER_BR;
-            } else if (x == houseLeftX + 3 || x == houseLeftX + 4 || x == houseLeftX + 5) {
-                // Door in the center (3 tiles wide)
-                tiles[houseBottomY][x] = TileType::DOOR;
-            } else {
-                tiles[houseBottomY][x] = TileType::WALL_EDGE_H;
-            }
-        }
-    }
-    
-    // Side walls
-    for (int y = houseTopY + 1; y < houseBottomY; y++) {
-        if (houseLeftX >= 0 && houseLeftX < currentWidthTiles) {
-            tiles[y][houseLeftX] = TileType::WALL_EDGE_V;
-        }
-        if (houseRightX >= 0 && houseRightX < currentWidthTiles) {
-            tiles[y][houseRightX] = TileType::WALL_EDGE_V;
-        }
-    }
-    
-    // House interior - ROOF tiles (visible when outside)
-    for (int y = houseTopY + 1; y < houseBottomY; y++) {
-        for (int x = houseLeftX + 1; x < houseRightX; x++) {
-            if (x >= 0 && x < currentWidthTiles) {
-                tiles[y][x] = TileType::ROOF;
-            }
-        }
-    }
-    
-    // Add tree border around the map edges
-    // Left border (full height)
-    for (int y = 0; y < currentHeightTiles; y++) {
-        if (0 < currentWidthTiles) {
-            tiles[y][0] = TileType::TREE_LEFT;
-        }
-    }
-    
-    // Right border (full height)
-    for (int y = 0; y < currentHeightTiles; y++) {
-        if (currentWidthTiles - 1 >= 0) {
-            tiles[y][currentWidthTiles - 1] = TileType::TREE_RIGHT;
-        }
-    }
-    
-    // Top border (excluding corners, already set by left/right borders)
-    for (int x = 1; x < currentWidthTiles - 1; x++) {
-        if (x >= 0 && x < currentWidthTiles) {
-            tiles[0][x] = TileType::TREE_TOP;
-        }
-    }
-    
-    // Bottom border (excluding corners)
-    for (int x = 1; x < currentWidthTiles - 1; x++) {
-        if (x >= 0 && x < currentWidthTiles) {
-            tiles[currentHeightTiles - 1][x] = TileType::TREE_BOTTOM;
-        }
-    }
-    
-    // Corner trees (override the border trees at corners)
-    if (0 < currentWidthTiles && 0 < currentHeightTiles) {
-        tiles[0][0] = TileType::TREE_CORNER_TL;  // Top-left
-    }
-    if (currentWidthTiles - 1 >= 0 && 0 < currentHeightTiles) {
-        tiles[0][currentWidthTiles - 1] = TileType::TREE_CORNER_TR;  // Top-right
-    }
-    if (0 < currentWidthTiles && currentHeightTiles - 1 >= 0) {
-        tiles[currentHeightTiles - 1][0] = TileType::TREE_CORNER_BL;  // Bottom-left
-    }
-    if (currentWidthTiles - 1 >= 0 && currentHeightTiles - 1 >= 0) {
-        tiles[currentHeightTiles - 1][currentWidthTiles - 1] = TileType::TREE_CORNER_BR;  // Bottom-right
-    }
-    
-    // Add ice biome on the right side of the map (last 20 tiles)
-    int iceStartX = currentWidthTiles - 21;  // Start ice 20 tiles from the right edge
-    for (int y = 0; y < currentHeightTiles; y++) {
-        for (int x = iceStartX; x < currentWidthTiles - 1; x++) {  // Exclude rightmost border tree
-            // Randomly select one of 9 ice variations for natural variety
-            int iceIndex = (x + y * 3) % 9;  // Pseudo-random based on position
-            tiles[y][x] = (TileType)iceIndex;  // ICE_1 through ICE_9
-        }
-    }
-    
-    // Add snow tiles in a transition zone between grass and ice
-    int snowStartX = iceStartX - 3;
-    for (int y = 0; y < currentHeightTiles; y++) {
-        for (int x = snowStartX; x < iceStartX; x++) {
-            if (x >= 0 && x < currentWidthTiles) {
-                // Mix of grass and snow for transition
-                if ((x + y) % 2 == 0) {
-                    tiles[y][x] = TileType::SNOW;
-                }
-            }
         }
     }
 }
