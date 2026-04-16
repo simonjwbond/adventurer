@@ -1,34 +1,99 @@
 #include "WorldManager.h"
+#include "graphics/ProceduralArt.h"
 #include <cstdio>
 #include <cstring>
 #include <cmath>
 
-#define DEBUG_LOG(fmt, ...) printf("[WorldManager] " fmt "\n", ##__VA_ARGS__)
+#define DEBUG_LOG(fmt, ...) if (WorldManager::DEBUG_LOGGING) printf("[WorldManager] " fmt "\n", ##__VA_ARGS__)
 
 /**
- * WorldManager Constructor
+ * Worker thread function - processes loading tasks from queue
+ */
+void WorldManager::workerThread() {
+    while (!shutdown) {
+        LoadTask* task = nullptr;
+        
+        // Get task from queue
+        {
+            std::unique_lock<std::mutex> lock(queueMutex);
+            queueCV.wait(lock, [this] { 
+                return shutdown || !loadQueue.empty(); 
+            });
+            
+            if (shutdown && loadQueue.empty()) {
+                break;
+            }
+            
+            if (!loadQueue.empty()) {
+                task = loadQueue.front();
+                loadQueue.pop();
+            }
+        }
+        
+        if (task != nullptr) {
+            // Execute the load task
+            try {
+                loadAreaSync(task->area);
+                task->promise.set_value();
+            } catch (const std::exception& e) {
+                DEBUG_LOG("Loading failed: %s", e.what());
+                task->area->loadState = LoadState::LOADING_FAILED;
+                task->promise.set_exception(std::current_exception());
+            }
+            
+            delete task;
+        }
+    }
+}
+
+/**
+ * Constructor
  */
 WorldManager::WorldManager(SDL_Renderer* renderer, ProceduralArt* art)
     : renderer(renderer)
     , proceduralArt(art)
 {
+    // Create worker threads for background loading
+    // One thread per CPU core, up to 4 threads
+    int numThreads = std::min(4u, std::thread::hardware_concurrency());
+    if (numThreads == 0) numThreads = 2;
+    
+    DEBUG_LOG("Creating %d worker threads for background loading", numThreads);
+    
+    for (int i = 0; i < numThreads; i++) {
+        workerThreads.emplace_back(&WorldManager::workerThread, this);
+    }
+    
+    DEBUG_LOG("WorldManager created with %d worker threads", (int)workerThreads.size());
 }
 
 /**
- * WorldManager Destructor
+ * Destructor
  */
 WorldManager::~WorldManager() {
+    // Signal shutdown
+    shutdown = true;
+    queueCV.notify_all();
+    
+    // Wait for all threads to finish
+    for (auto& thread : workerThreads) {
+        if (thread.joinable()) {
+            thread.join();
+        }
+    }
+    
+    DEBUG_LOG("Worker threads stopped");
+    
     // Clean up all areas
     for (auto& pair : areas) {
         if (pair.second != nullptr) {
-            if (pair.second->tileMap != nullptr) {
-                delete pair.second->tileMap;
-            }
             delete pair.second;
         }
     }
     areas.clear();
     currentArea = nullptr;
+    
+    DEBUG_LOG("WorldManager destroyed");
 }
 
 /**
@@ -62,7 +127,7 @@ std::string WorldManager::getAreaTypeString(AreaType type) {
 }
 
 /**
- * Create a new world area
+ * Create a new world area definition (not loaded yet)
  */
 WorldManager::WorldArea* WorldManager::createArea(AreaType type, const std::string& name) {
     WorldArea* area = new WorldArea();
@@ -80,7 +145,7 @@ WorldManager::WorldArea* WorldManager::createArea(AreaType type, const std::stri
     area->startY = 0;
     
     areas[type] = area;
-    DEBUG_LOG("Created area: %s (%dx%d tiles)", name.c_str(), area->widthTiles, area->heightTiles);
+    DEBUG_LOG("Created area definition: %s (%dx%d tiles)", name.c_str(), area->widthTiles, area->heightTiles);
     
     return area;
 }
@@ -176,16 +241,71 @@ void WorldManager::loadAreaLayout(WorldArea* area) {
     // Generate static background
     area->tileMap->generateStaticBackground(renderer);
     
+    area->loadState = LoadState::LOADED;
     DEBUG_LOG("Loaded layout: %s", area->name.c_str());
 }
 
 /**
- * Initialize the world with all areas and connections
+ * Load an area synchronously (blocking)
+ */
+void WorldManager::loadAreaSync(WorldArea* area) {
+    if (area == nullptr) return;
+    
+    area->loadState = LoadState::LOADING;
+    loadAreaLayout(area);
+}
+
+/**
+ * Start async loading of an area
+ */
+void WorldManager::loadAreaAsync(WorldArea* area) {
+    if (area == nullptr) return;
+    
+    // Check if already loading or loaded
+    LoadState state = area->loadState.load();
+    if (state == LoadState::LOADING || state == LoadState::LOADED) {
+        return;  // Already being loaded or done
+    }
+    
+    area->loadState = LoadState::LOADING;
+    
+    // Create loading task
+    LoadTask* task = new LoadTask();
+    task->area = area;
+    task->renderer = renderer;
+    task->art = proceduralArt;
+    
+    // Add to queue
+    {
+        std::unique_lock<std::mutex> lock(queueMutex);
+        loadQueue.push(task);
+    }
+    queueCV.notify_one();
+    
+    DEBUG_LOG("Started async loading for: %s", area->name.c_str());
+}
+
+/**
+ * Unload an area to free memory
+ */
+void WorldManager::unloadArea(WorldArea* area) {
+    if (area == nullptr || area->tileMap == nullptr) return;
+    
+    DEBUG_LOG("Unloading area: %s", area->name.c_str());
+    
+    // Delete tile map to free memory
+    delete area->tileMap;
+    area->tileMap = nullptr;
+    area->loadState = LoadState::NOT_LOADED;
+}
+
+/**
+ * Initialize the world with all area definitions (but don't load yet)
  */
 void WorldManager::initialize() {
-    DEBUG_LOG("Initializing World Manager...");
+    DEBUG_LOG("Initializing World Manager (lazy loading enabled)...");
     
-    // Create all world areas
+    // Create all world area definitions (not loaded yet)
     WorldArea* grass = createArea(AreaType::GRASSLAND, "grassland");
     WorldArea* desert = createArea(AreaType::DESERT, "desert");
     WorldArea* ice = createArea(AreaType::ICE, "ice");
@@ -198,22 +318,79 @@ void WorldManager::initialize() {
     connectAreas(grass, desert, Direction::EAST); // From grass, go east to desert
     connectAreas(desert, grass, Direction::WEST); // From desert, go west to grass
     
-    // Load all area layouts (pre-load for seamless transitions)
-    loadAreaLayout(grass);
-    loadAreaLayout(desert);
-    loadAreaLayout(ice);
-    
     // Set current area to grassland (starting area)
     currentArea = grass;
     
-    DEBUG_LOG("World Manager initialized with %zu areas", areas.size());
+    // Don't pre-load - let it load on demand
+    DEBUG_LOG("World Manager initialized with %zu area definitions (lazy loading enabled)", areas.size());
 }
 
 /**
- * Get the current TileMap
+ * Ensure current area is loaded (blocking if needed)
+ */
+void WorldManager::ensureCurrentAreaLoaded() {
+    if (currentArea == nullptr) return;
+    
+    if (currentArea->loadState.load() != LoadState::LOADED) {
+        DEBUG_LOG("Ensuring current area is loaded: %s", currentArea->name.c_str());
+        loadAreaSync(currentArea);
+    }
+}
+
+/**
+ * Start loading adjacent areas in background (non-blocking)
+ */
+void WorldManager::preloadAdjacentAreas() {
+    if (currentArea == nullptr) return;
+    
+    DEBUG_LOG("Preloading adjacent areas for: %s", currentArea->name.c_str());
+    
+    // Start async loading for all adjacent areas
+    if (currentArea->connectedNorth != nullptr) {
+        loadAreaAsync(currentArea->connectedNorth);
+    }
+    if (currentArea->connectedSouth != nullptr) {
+        loadAreaAsync(currentArea->connectedSouth);
+    }
+    if (currentArea->connectedEast != nullptr) {
+        loadAreaAsync(currentArea->connectedEast);
+    }
+    if (currentArea->connectedWest != nullptr) {
+        loadAreaAsync(currentArea->connectedWest);
+    }
+}
+
+/**
+ * Check if an area is ready to use
+ */
+bool WorldManager::isAreaLoaded(AreaType type) const {
+    auto it = areas.find(type);
+    if (it == areas.end() || it->second == nullptr) {
+        return false;
+    }
+    return it->second->loadState.load() == LoadState::LOADED;
+}
+
+/**
+ * Get the current TileMap (assumes current area is loaded)
  */
 TileMap* WorldManager::getCurrentTileMap() const {
-    return (currentArea != nullptr) ? currentArea->tileMap : nullptr;
+    return (currentArea != nullptr && currentArea->tileMap != nullptr) ? currentArea->tileMap : nullptr;
+}
+
+/**
+ * Get current area type
+ */
+WorldManager::AreaType WorldManager::getCurrentAreaType() const {
+    return (currentArea != nullptr) ? currentArea->type : AreaType::GRASSLAND;
+}
+
+/**
+ * Get area by type
+ */
+WorldManager::WorldArea* WorldManager::getArea(AreaType type) const {
+    auto it = areas.find(type);
+    return (it != areas.end()) ? it->second : nullptr;
 }
 
 /**
@@ -253,6 +430,12 @@ bool WorldManager::checkBoundaryTransition(float& playerX, float& playerY) {
         DEBUG_LOG("Boundary transition: %s -> %s", 
                   currentArea->name.c_str(), targetArea->name.c_str());
         
+        // Ensure target area is loaded (blocking if needed)
+        if (targetArea->loadState.load() != LoadState::LOADED) {
+            DEBUG_LOG("Loading target area before transition: %s", targetArea->name.c_str());
+            loadAreaSync(targetArea);
+        }
+        
         // Switch to new area
         currentArea = targetArea;
         
@@ -260,8 +443,13 @@ bool WorldManager::checkBoundaryTransition(float& playerX, float& playerY) {
         playerX = currentArea->entryX;
         playerY = currentArea->entryY;
         
-        // Regenerate background for new area
-        currentArea->tileMap->generateStaticBackground(renderer);
+        // Generate background for new area (should already be done, but just in case)
+        if (currentArea->tileMap != nullptr) {
+            currentArea->tileMap->generateStaticBackground(renderer);
+        }
+        
+        // Start preloading the new adjacent areas
+        preloadAdjacentAreas();
         
         return true;
     }
@@ -276,7 +464,9 @@ void WorldManager::render(SDL_Renderer* renderer, int cameraX, int cameraY) {
     if (currentArea == nullptr) return;
     
     // Render current area
-    currentArea->tileMap->render(renderer, cameraX, cameraY);
+    if (currentArea->tileMap != nullptr) {
+        currentArea->tileMap->render(renderer, cameraX, cameraY);
+    }
     
     // TODO: Render adjacent areas if they overlap with viewport
     // This would enable seamless transitions without black borders
