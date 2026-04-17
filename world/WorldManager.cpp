@@ -322,12 +322,16 @@ void WorldManager::initialize() {
     // Set current area to indoor/house (starting area)
     currentArea = indoor;
     
+    // Set correct dimensions for indoor area (16x8 tiles, not 160x80)
+    indoor->widthTiles = 16;
+    indoor->heightTiles = 8;
+    
     // Set entry position for indoor area - spawn player inside the house, not on the wall
     // Room is 16x8 tiles, walls on perimeter, floor from (1,1) to (14,6)
     // Spawn in center of room, slightly above the door
     const int TILE_SIZE = 48;
-    indoor->entryX = (indoor->widthTiles / 2) * TILE_SIZE;  // Center horizontally
-    indoor->entryY = 5 * TILE_SIZE;  // Row 5, inside the room (not on wall)
+    indoor->entryX = (indoor->widthTiles / 2) * TILE_SIZE;  // Center horizontally (8 * 48 = 384)
+    indoor->entryY = 5 * TILE_SIZE;  // Row 5, inside the room (not on wall) (5 * 48 = 240)
     
     DEBUG_LOG("Indoor entry position set: (%.1f, %.1f)", indoor->entryX, indoor->entryY);
     
