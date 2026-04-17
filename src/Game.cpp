@@ -89,7 +89,8 @@ bool Game::initialize() {
     // Create subsystems
     inputManager = new InputManager();
     camera = new Camera();
-    proceduralArt = new ProceduralArt(renderer);
+    proceduralArt = new ProceduralArt();
+    proceduralArt->initialize(renderer);
     worldManager = new WorldManager(renderer, proceduralArt);
     settings = new Settings();
     settings->loadFromFile(Settings::getDefaultPath());

@@ -34,8 +34,19 @@ set(SOURCES
     src/InputManager.cpp
     src/Camera.cpp
     
-    # Graphics
+    # Graphics - Core
     graphics/ProceduralArt.cpp
+    graphics/Core/TextureCache.cpp
+    graphics/Core/PixelUtils.cpp
+    
+    # Graphics - Biomes
+    graphics/Biomes/Grassland.cpp
+    graphics/Biomes/Desert.cpp
+    graphics/Biomes/Forest.cpp
+    graphics/Biomes/Indoor.cpp
+    
+    # Graphics - Characters
+    graphics/Characters/CharacterSprites.cpp
     
     # World/Tiles
     world/TileMap.cpp

@@ -23,6 +23,11 @@ Entries must include:
 - **Performance First**: Avoid expensive operations (like texture creation or file I/O) inside the main game loop (`run`, `update`, `render`).
 - **Memory Management**: Always clean up SDL resources (`SDL_Texture`, `SDL_Renderer`, `SDL_Window`) and heap-allocated objects in `cleanup()` or destructors.
 - **Diagnostics**: Use the `DEBUG_LOG` macro for important state transitions. Ensure stderr output is useful for debugging.
+- **Code Organization**: Keep C++ files lean and focused. Target ~1000 lines maximum per file. If a file approaches 2000 lines, split it into smaller, logically separated files. This improves:
+  - AI agent readability and context management
+  - Code maintainability and navigation
+  - Compilation times
+  - Single responsibility principle adherence
 
 ## 3. Communication
 - Always explain the *intent* before calling tools.

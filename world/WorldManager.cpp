@@ -309,6 +309,7 @@ void WorldManager::initialize() {
     WorldArea* grass = createArea(AreaType::GRASSLAND, "grassland");
     WorldArea* desert = createArea(AreaType::DESERT, "desert");
     WorldArea* ice = createArea(AreaType::ICE, "ice");
+    WorldArea* indoor = createArea(AreaType::INDOOR, "house");
     
     // Connect areas:
     // Ice (West) <--> Grass (Center) <--> Desert (East)
@@ -318,8 +319,17 @@ void WorldManager::initialize() {
     connectAreas(grass, desert, Direction::EAST); // From grass, go east to desert
     connectAreas(desert, grass, Direction::WEST); // From desert, go west to grass
     
-    // Set current area to grassland (starting area)
-    currentArea = grass;
+    // Set current area to indoor/house (starting area)
+    currentArea = indoor;
+    
+    // Set entry position for indoor area - spawn player inside the house, not on the wall
+    // Room is 16x8 tiles, walls on perimeter, floor from (1,1) to (14,6)
+    // Spawn in center of room, slightly above the door
+    const int TILE_SIZE = 48;
+    indoor->entryX = (indoor->widthTiles / 2) * TILE_SIZE;  // Center horizontally
+    indoor->entryY = 5 * TILE_SIZE;  // Row 5, inside the room (not on wall)
+    
+    DEBUG_LOG("Indoor entry position set: (%.1f, %.1f)", indoor->entryX, indoor->entryY);
     
     // Don't pre-load - let it load on demand
     DEBUG_LOG("World Manager initialized with %zu area definitions (lazy loading enabled)", areas.size());
